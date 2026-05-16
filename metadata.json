@@ -1,0 +1,11 @@
+{
+  "name": "Aura Stream Explorer",
+  "description": "A high-end, privacy-focused dashboard for discovering and accessing public streaming media, world radios, and global webcams.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
