@@ -44,25 +44,42 @@ export const PlaylistViewer = ({
         }
     };
 
+    const createPlaylist = ({ name }: { name: string }) => {
+        if (!name) return;
+        setPlaylists(prev => [...prev, { id: Date.now().toString(), name, items: [] }]);
+        addLog(`Playlist '${name}' created.`, "success");
+    };
+
     return (
         <div className="space-y-6">
             <div className="bento-card p-4 bg-white/5 border border-white/10 space-y-4">
-                <h3 className="text-sm font-black text-white uppercase">Generate Playlist</h3>
+                <h3 className="text-sm font-black text-white uppercase">New Playlist</h3>
                 <div className="flex gap-2">
                     <input 
                         type="text" 
                         value={themeInput} 
                         onChange={(e) => setThemeInput(e.target.value)}
-                        placeholder="Theme, e.g. 'ambient nature sounds'..."
+                        placeholder="Playlist name..."
                         className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-brand-green/30"
                     />
                     <button 
-                        onClick={() => generatePlaylist(themeInput)}
-                        disabled={isGenerating || !themeInput}
+                        onClick={() => {
+                            createPlaylist({ name: themeInput });
+                            setThemeInput("");
+                        }}
+                        disabled={!themeInput}
                         className="bg-brand-green/20 hover:bg-brand-green/30 text-brand-green px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 border border-brand-green/20"
                     >
-                        {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <PlusSquare className="w-3 h-3" />}
-                        GENERATE
+                        <PlusSquare className="w-3 h-3" />
+                        CREATE
+                    </button>
+                    <button 
+                        onClick={() => generatePlaylist(themeInput)}
+                        disabled={isGenerating || !themeInput}
+                        className="bg-brand-green/10 hover:bg-brand-green/20 text-brand-green/70 px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 border border-brand-green/10"
+                    >
+                        {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <List className="w-3 h-3" />}
+                        AI_GEN
                     </button>
                 </div>
             </div>

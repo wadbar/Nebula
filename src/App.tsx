@@ -2103,12 +2103,12 @@ export default function App() {
                             <div className="col-span-2 border-b border-white/10 pb-4 mb-4">
                                 <h4 className="text-white/40 font-bold mb-3">SYSTEM_AND_SIGNAL_METRICS</h4>
                                 <div className="grid grid-cols-2 gap-x-8 gap-y-2">
-                                 <div className="flex justify-between"><span className="text-white/40">CODEC</span><span className="text-brand-green">H.264 / AAC</span></div>
-                                 <div className="flex justify-between"><span className="text-white/40">FRAME_RATE</span><span className="text-brand-green">60 FPS</span></div>
-                                 <div className="flex justify-between"><span className="text-white/40">BUFFER_STATUS</span><span className="text-yellow-500">3.4s / 5.0s</span></div>
-                                 <div className="flex justify-between"><span className="text-white/40">JITTER</span><span className="text-brand-cyan">2.1ms</span></div>
-                                 <div className="flex justify-between"><span className="text-white/40">PACKET_LOSS</span><span className="text-red-500">0.003%</span></div>
-                                 <div className="flex justify-between"><span className="text-white/40">NETWORK</span><span className="text-brand-cyan">85.6 MBPS</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">CODEC</span><span className="text-brand-green">{streamInfo.codec || 'N/A'}</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">FRAME_RATE</span><span className="text-brand-green">{streamInfo.fps ? `${streamInfo.fps} FPS` : 'N/A'}</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">BUFFER_STATUS</span><span className="text-yellow-500">{streamInfo.buffer !== undefined ? `${streamInfo.buffer}s` : 'N/A'}</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">JITTER</span><span className="text-brand-cyan">{systemStats.latency.toFixed(1)}ms</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">PACKET_LOSS</span><span className="text-red-500">{systemStats.packetLoss.toFixed(3)}%</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">NETWORK</span><span className="text-brand-cyan">{systemStats.net.toFixed(1)} MBPS</span></div>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-xs font-mono mb-8 text-white/70">
