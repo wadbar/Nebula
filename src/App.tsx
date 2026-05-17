@@ -19,6 +19,7 @@ import {
   Activity, 
   Volume2, 
   Maximize2, 
+  Maximize,
   Play, 
   Pause,
   Square,
@@ -45,15 +46,22 @@ import {
   Map as MapIcon,
   Navigation,
   SkipForward,
+  SkipBack,
   Download,
   Captions as SubtitlesIcon,
   PlusSquare,
   Image as ImageIcon,
   FileText,
   Gamepad2,
+  Tv,
+  Camera,
+  RadioReceiver,
+  MonitorPlay,
   X,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Info,
+  Book
 } from "lucide-react";
 import { motion, AnimatePresence, Reorder } from "motion/react";
 import Hls from "hls.js";
@@ -82,7 +90,7 @@ interface DownloadTask {
 interface MediaResult {
   name: string;
   url: string;
-  type: "radio" | "video" | "live_cam" | "media" | "image" | "document" | "rom";
+  type: "radio" | "video" | "live_cam" | "media" | "image" | "document" | "rom" | "book";
   category?: string;
   description: string;
   tags: string[];
@@ -179,17 +187,31 @@ export default function App() {
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("All");
 
-  const categories = ["All", "Security", "Infrastructure", "Intelligence", "Public", "Natureza"];
+  const categories = ["All", "video", "radio", "live_cam", "media", "image", "document", "book", "rom"];
+  const categoryLabels: Record<string, string> = {
+    "All": "ALL",
+    "video": "VIDEO",
+    "radio": "RADIO / AUDIO",
+    "live_cam": "STREAMING / CAMS",
+    "media": "DIGITAL MEDIA",
+    "image": "IMAGES",
+    "document": "DOCUMENTS",
+    "book": "BOOKS",
+    "rom": "GAMES / ROMS"
+  };
   const categoryIcons: Record<string, any> = {
-    All: Globe,
-    Security: Shield,
-    Infrastructure: CpuIcon,
-    Intelligence: Fingerprint,
-    Public: Activity,
-    Natureza: Zap
+    "All": Globe,
+    "video": Tv,
+    "radio": RadioReceiver,
+    "live_cam": Camera,
+    "media": MonitorPlay,
+    "image": ImageIcon,
+    "document": FileText,
+    "book": Book,
+    "rom": Gamepad2
   };
   const [currentMedia, setCurrentMedia] = useState<MediaResult | null>(null);
-  const [activeTab, setActiveTab] = useState<"all" | "radio" | "video" | "live_cam" | "media" | "image" | "document" | "rom" | "favorites" | "history" | "playlists">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "radio" | "video" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "favorites" | "history" | "playlists">("all");
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
   const [eqPreset, setEqPreset] = useState<"flat" | "bass_boost" | "treble_boost" | "balanced">("flat");
@@ -220,6 +242,7 @@ export default function App() {
   
   const [isVideoFloating, setIsVideoFloating] = useState(false);
   const [isVideoMinimized, setIsVideoMinimized] = useState(false);
+  const [showMediaInfoOverlay, setShowMediaInfoOverlay] = useState(false);
   
   // Subtitles State
   const [subtitles, setSubtitles] = useState<string>("");
@@ -266,20 +289,31 @@ export default function App() {
     return () => clearInterval(itv);
   }, []);
 
+  const searchController = useRef<AbortController | null>(null);
+  const fetchIntelController = useRef<AbortController | null>(null);
+
   const fetchIntel = async (signal: MediaResult) => {
+    if (fetchIntelController.current) {
+        fetchIntelController.current.abort();
+    }
+    fetchIntelController.current = new AbortController();
+
     setIntelLoading(true);
     setIntelBrief(null);
     try {
       const res = await fetch("/api/intel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signal })
+        body: JSON.stringify({ signal }),
+        signal: fetchIntelController.current.signal
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to retrieve intelligence");
       setIntelBrief(data.brief);
     } catch (err: any) {
-      addLog(`Intel error: ${err.message || "Failed to retrieve signal intelligence."}`, "warn");
+      if (err.name !== 'AbortError') {
+        addLog(`Intel error: ${err.message || "Failed to retrieve signal intelligence."}`, "warn");
+      }
     } finally {
       setIntelLoading(false);
     }
@@ -294,6 +328,7 @@ export default function App() {
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mediaContainerRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<number>(0);
 
   const EQ_FREQUENCIES = [60, 250, 1000, 4000, 12000];
@@ -458,6 +493,11 @@ export default function App() {
     const finalQuery = manualQuery || query;
     if (!finalQuery) return;
     
+    if (searchController.current) {
+       searchController.current.abort();
+    }
+    searchController.current = new AbortController();
+
     setLoading(true);
     setScanProgress(0);
     setScannerStep(1);
@@ -479,35 +519,74 @@ export default function App() {
         searchType = "all";
       }
 
-      const fetchPromise = fetch("/api/discover", {
+      addLog(`[TRANSLATE] Translating query for universal global discovery...`, "info");
+      
+      const translationPromise = fetch("/api/translate-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: finalQuery, type: searchType }),
+        body: JSON.stringify({ query: finalQuery }),
+        signal: searchController.current.signal
       });
 
       for (let i = 0; i < steps.length; i++) {
+        if (searchController.current.signal.aborted) throw new DOMException('Aborted', 'AbortError');
         setScannerStep(i + 1);
         setScanProgress(((i + 1) / steps.length) * 100);
         addLog(`[KERNEL] ${steps[i]}`, i === steps.length - 1 ? "success" : "info");
         await new Promise(r => setTimeout(r, 600));
       }
 
-      const response = await fetchPromise;
+      const translateRes = await translationPromise;
+      const translateData = await translateRes.json();
+      const queriesToRun: string[] = translateData.translations && translateData.translations.length > 0 
+                                      ? translateData.translations 
+                                      : [finalQuery];
       
-      const data = await response.json();
+      addLog(`[GLOBAL SENSOR] Dispatched ${queriesToRun.length} parallel queries across language meshes.`, "info");
+      setResults([]);
       
-      if (!response.ok) {
-        throw new Error(data.error === "QUERY_EMPTY" ? "Search query is empty." : (data.detail || "Discovery failed."));
-      }
-      
-      if (Array.isArray(data)) {
-        setResults(data);
-        addLog(`[SUCCESS] Discovery complete. ${data.length} authenticated nodes resolved.`, "success");
-        if (data.length === 0) {
-          addLog("[ALERT] No high-integrity nodes found. Switching to sub-mesh passive mode.", "warn");
+      let allResults: MediaResult[] = [];
+      const fetchPromises = queriesToRun.map(async (q: string) => {
+        try {
+          const response = await fetch("/api/discover", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: q, type: searchType }),
+            signal: searchController.current.signal
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data)) {
+               allResults = [...allResults, ...data];
+               // Deduplicate interactively
+               const uniqueResults = allResults.filter((value, index, self) =>
+                  index === self.findIndex((t) => (t.url === value.url))
+               );
+               setResults(uniqueResults);
+            }
+          }
+        } catch (e: any) {
+           if (e.name !== 'AbortError') {
+             console.warn(`Local node scan failed for query: ${q}`);
+           }
         }
+      });
+      
+      await Promise.all(fetchPromises);
+      
+      const uniqueResults = allResults.filter((value, index, self) =>
+          index === self.findIndex((t) => (
+            t.url === value.url
+          ))
+      );
+      
+      if (uniqueResults.length > 0) {
+        addLog(`[SUCCESS] Universal Discovery complete. ${uniqueResults.length} authenticated nodes resolved globally.`, "success");
+      } else {
+        addLog("[ALERT] No high-integrity nodes found. Switching to sub-mesh passive mode.", "warn");
       }
     } catch (error: any) {
+      if (error.name === 'AbortError') return;
       if (error.message.includes("Content restricted")) {
         addLog(`[FIREWALL BLOCK] Deep Web Safety Policies intercepted query. Adult/NSFW content is restricted by some nodes, retrying open relays.`, "security");
       } else {
@@ -650,70 +729,90 @@ export default function App() {
           addLog("Playback connection refused by peer node.", "warn");
           handleStreamError(media);
         });
-    } else if ((media.type === "video" || media.type === "live_cam" || media.type === "media" || media.type === "image" || media.type === "document" || media.type === "rom")) {
+    }
+  };
+
+  useEffect(() => {
+    if (!currentMedia) return;
+
+    if (currentMedia.type === "image" || currentMedia.type === "document" || currentMedia.type === "rom") {
+        setIsPlaying(true);
+        setIsReconnecting(false);
+        setReconnectCount(0);
+        addLog(`${currentMedia.type.toUpperCase()} Feed linked: ${currentMedia.name}`, "info");
+        return;
+    }
+
+    if (currentMedia.type === "video" || currentMedia.type === "live_cam" || currentMedia.type === "media") {
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.src = "";
         }
 
-        const isYouTube = media.url.includes("youtube.com") || media.url.includes("youtu.be");
+        const isYouTube = currentMedia.url.includes("youtube.com") || currentMedia.url.includes("youtu.be");
         if (isYouTube) {
           setIsPlaying(true);
           setIsReconnecting(false);
           setReconnectCount(0);
-          addLog(`YouTube Feed linked: ${media.name}`, "info");
-        } else if (media.type === "image" || media.type === "document" || media.type === "rom") {
-          setIsPlaying(true);
-          setIsReconnecting(false);
-          setReconnectCount(0);
-          addLog(`${media.type.toUpperCase()} Feed linked: ${media.name}`, "info");
-        } else if (videoRef.current) {
-          const video = videoRef.current;
-          if (Hls.isSupported() && media.url.includes('.m3u8')) {
-          const hls = new Hls({
-            autoStartLoad: true,
-            capLevelToPlayerSize: true,
-            manifestLoadingMaxRetry: 3,
-            levelLoadingMaxRetry: 3
-          });
-          hls.loadSource(media.url);
-          hls.attachMedia(video);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            applyQualityToHls(hls, streamQuality);
-            video.play();
-            setIsReconnecting(false);
-            if (isRetry) addLog(`[SUCCESS] Signal restored for ${media.name}.`, "success");
-          });
-
-          hls.on(Hls.Events.ERROR, (event, data) => {
-            console.error('[HLS_ERROR]', event, data);
-            if (data.fatal) {
-              addLog(`[HLS_FATAL_ERROR] ${data.type}: ${data.details}`, "warn");
-              handleStreamError(media);
-              hls.destroy();
-              hlsRef.current = null;
-            } else {
-              addLog(`[HLS_WARN] ${data.type}: ${data.details}`, "warn");
-            }
-          });
-
-          hlsRef.current = hls;
+          addLog(`YouTube Feed linked: ${currentMedia.name}`, "info");
         } else {
-          video.src = media.url;
-          video.onplay = () => {
-            setIsReconnecting(false);
-            if (isRetry) addLog(`[SUCCESS] Signal restored for ${media.name}.`, "success");
-          };
-          video.onerror = () => handleStreamError(media);
-          video.play().catch(e => {
-            console.error("Playback error", e);
-            addLog(`Native video playback failed: ${e.message}`, "warn");
-            handleStreamError(media);
-          });
+          // Wrap in a tiny timeout to ensure React paints the new `<video>` tag
+          setTimeout(() => {
+            if (!videoRef.current) return;
+            const video = videoRef.current;
+            
+            if (hlsRef.current) {
+              hlsRef.current.destroy();
+              hlsRef.current = null;
+            }
+
+            if (Hls.isSupported() && currentMedia.url.includes('.m3u8')) {
+              const hls = new Hls({
+                autoStartLoad: true,
+                capLevelToPlayerSize: true,
+                manifestLoadingMaxRetry: 3,
+                levelLoadingMaxRetry: 3
+              });
+              hls.loadSource(currentMedia.url);
+              hls.attachMedia(video);
+              hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                applyQualityToHls(hls, streamQuality);
+                video.play().catch(e => {
+                  console.error("Playback error", e);
+                  addLog(`Stream initiation failed: ${e.message}`, "warn");
+                  handleStreamError(currentMedia);
+                });
+                setIsReconnecting(false);
+                addLog(`[SUCCESS] Signal restored for ${currentMedia.name}.`, "success");
+              });
+
+              hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                  addLog(`[HLS_FATAL_ERROR] ${data.type}: ${data.details}`, "warn");
+                  handleStreamError(currentMedia);
+                  hls.destroy();
+                  hlsRef.current = null;
+                }
+              });
+
+              hlsRef.current = hls;
+            } else {
+              video.src = currentMedia.url;
+              video.onplay = () => {
+                setIsReconnecting(false);
+                addLog(`[SUCCESS] Signal restored for ${currentMedia.name}.`, "success");
+              };
+              video.onerror = () => handleStreamError(currentMedia);
+              video.play().catch(e => {
+                console.error("Playback error", e);
+                addLog(`Native video playback failed: ${e.message}`, "warn");
+                handleStreamError(currentMedia);
+              });
+            }
+          }, 50);
         }
-      }
     }
-  };
+  }, [currentMedia]);
 
   const handleStreamError = (media: MediaResult) => {
     if (reconnectCount < MAX_RECONNECT_ATTEMPTS) {
@@ -900,6 +999,15 @@ export default function App() {
       audioRef.current.currentTime = 0;
       audioRef.current.src = "";
     }
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+      videoRef.current.src = "";
+    }
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
     setCurrentMedia(null);
     addLog("Signal terminated by user.", "info");
   };
@@ -1029,6 +1137,51 @@ export default function App() {
     setDownloads(prev => prev.filter(t => t.status !== 'completed'));
   };
 
+  const handleFullscreen = async () => {
+    if (!mediaContainerRef.current) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await mediaContainerRef.current.requestFullscreen();
+      }
+    } catch (err) {
+      addLog("Fullscreen mode is not supported by your browser.", "warn");
+    }
+  };
+
+  const handleSkipBackward = async () => {
+    if (activePlaylistId) {
+      const playlist = playlists.find(p => p.id === activePlaylistId);
+      if (playlist && playlist.items.length > 0) {
+        const currentIndex = currentMedia ? playlist.items.findIndex(r => r.url === currentMedia.url) : -1;
+        const prevIndex = currentIndex <= 0 ? playlist.items.length - 1 : currentIndex - 1;
+        const prevMedia = playlist.items[prevIndex];
+        
+        addLog(`Skipping to previous in playlist ${playlist.name}: ${prevMedia.name}`, "info");
+        playMedia(prevMedia);
+        return;
+      }
+    }
+
+    const list = activeTab === "favorites" 
+      ? favorites 
+      : activeTab === "history" 
+      ? history 
+      : results.filter(r => (activeCategory === "All" || r.type === activeCategory) && (activeTab === 'all' || r.type === activeTab));
+
+    if (list.length === 0) {
+      return;
+    }
+
+    const currentIndex = currentMedia ? list.findIndex(r => r.url === currentMedia.url) : -1;
+    const prevIndex = currentIndex <= 0 ? list.length - 1 : currentIndex - 1;
+    const prevMedia = list[prevIndex];
+    
+    addLog(`Skipping to previous signal: ${prevMedia.name}`, "info");
+    playMedia(prevMedia);
+  };
+
   const handleSkip = async () => {
     if (activePlaylistId) {
       const playlist = playlists.find(p => p.id === activePlaylistId);
@@ -1047,7 +1200,7 @@ export default function App() {
       ? favorites 
       : activeTab === "history" 
       ? history 
-      : results.filter(r => (activeCategory === "All" || r.category === activeCategory) && (activeTab === 'all' || r.type === activeTab));
+      : results.filter(r => (activeCategory === "All" || r.type === activeCategory) && (activeTab === 'all' || r.type === activeTab));
 
     if (list.length === 0) {
       addLog("No results in category. Initiating deep scan for 'trending media'...", "info");
@@ -1077,19 +1230,37 @@ export default function App() {
   };
 
   const handlePause = () => {
-    if (isPlaying && audioRef.current) {
-      audioRef.current.pause();
+    if (isPlaying) {
+      if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
+      }
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
+      if (currentMedia?.type === 'document' || currentMedia?.type === 'image' || currentMedia?.type === 'rom' || currentMedia?.type === 'book' || currentMedia?.url.includes('youtube')) {
+        // Cannot programmatically pause iframes purely without API natively easily here, so we just toggle state
+      }
       setIsPlaying(false);
       addLog("Stream paused.", "info");
     }
   };
 
   const handlePlay = () => {
-    if (!isPlaying && audioRef.current && currentMedia) {
-      audioRef.current.play().catch(e => {
-        addLog("Error resuming stream.", "warn");
-      });
+    if (!isPlaying && currentMedia) {
+      if (audioRef.current && currentMedia.type === 'radio') {
+        audioRef.current.play().catch(e => {
+          addLog("Error resuming audio stream.", "warn");
+        });
+      }
+      if (videoRef.current && (currentMedia.type === 'video' || currentMedia.type === 'live_cam' || currentMedia.type === 'media')) {
+        if (!currentMedia.url.includes("youtube.com") && !currentMedia.url.includes("youtu.be")) {
+          videoRef.current.play().catch(e => {
+            addLog("Error resuming video stream.", "warn");
+          });
+        }
+      }
       setIsPlaying(true);
+      addLog("Stream playing.", "info");
     }
   };
 
@@ -1097,7 +1268,7 @@ export default function App() {
     ? favorites 
     : activeTab === "history" 
     ? history 
-    : results.filter(r => (activeCategory === "All" || r.category === activeCategory) && (activeTab === 'all' || r.type === activeTab));
+    : results.filter(r => (activeCategory === "All" || r.type === activeCategory) && (activeTab === 'all' || r.type === activeTab));
 
   const MapOverlay = () => {
     if (!GOOGLE_MAPS_API_KEY) {
@@ -1301,6 +1472,7 @@ export default function App() {
                 { id: 'media', icon:Zap, label: 'DARK ARCHIVES' },
                 { id: 'image', icon:ImageIcon, label: 'IMAGE BOARDS' },
                 { id: 'document', icon:FileText, label: 'LEAKED DOCS' },
+                { id: 'book', icon:Book, label: 'BIBLIOTECA DIGITAL' },
                 { id: 'rom', icon:Gamepad2, label: 'RETRO ROMS' },
                 { id: 'favorites', icon:Star, label: 'SAVED_NODES' },
                 { id: 'history', icon:Clock, label: 'SIGNAL_HISTORY' },
@@ -1308,7 +1480,10 @@ export default function App() {
               ].map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => {
+                    setActiveTab(tab.id as any);
+                    setActiveCategory("All");
+                  }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group ${
                     activeTab === tab.id 
                     ? 'bg-brand-green/10 text-brand-green border border-brand-green/20' 
@@ -1455,7 +1630,10 @@ export default function App() {
                return (
                  <button
                    key={cat}
-                   onClick={() => setActiveCategory(cat)}
+                   onClick={() => {
+                     setActiveCategory(cat);
+                     if (cat !== "All") setActiveTab("all"); // Reset tab to avoid conflict
+                   }}
                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase border transition-all whitespace-nowrap ${
                      activeCategory === cat
                        ? "bg-brand-green/10 text-brand-green border-brand-green/20"
@@ -1463,7 +1641,7 @@ export default function App() {
                    }`}
                  >
                    <Icon className="w-3 h-3" />
-                   {cat}
+                   {categoryLabels[cat]}
                  </button>
                );
              })}
@@ -1720,7 +1898,7 @@ export default function App() {
            <div className="flex-1 bento-card p-6 flex flex-col">
               <h3 className="text-xs font-mono text-brand-green mb-4 tracking-widest uppercase opacity-80">Feed Matrix</h3>
               <div className="flex-1 grid grid-cols-1 gap-4">
-                 {(currentMedia?.type === 'video' || currentMedia?.type === 'live_cam' || currentMedia?.type === 'media' || currentMedia?.type === 'webcam' || currentMedia?.type === 'stream' || currentMedia?.type === 'image' || currentMedia?.type === 'document' || currentMedia?.type === 'rom') ? (
+                 {(currentMedia?.type === 'video' || currentMedia?.type === 'live_cam' || currentMedia?.type === 'media' || currentMedia?.type === 'webcam' || currentMedia?.type === 'stream' || currentMedia?.type === 'image' || currentMedia?.type === 'document' || currentMedia?.type === 'rom' || currentMedia?.type === 'book') ? (
                     <>
                     {isVideoFloating && !isVideoMinimized && (
                         <div className="bg-black/40 rounded-2xl border border-dashed border-white/20 relative flex items-center justify-center flex-1 opacity-30">
@@ -1731,6 +1909,7 @@ export default function App() {
                         <div className="flex-1" />
                     )}
                     <motion.div
+                        ref={mediaContainerRef}
                         drag={isVideoFloating}
                         dragMomentum={false}
                         initial={false}
@@ -1743,8 +1922,8 @@ export default function App() {
                     >
                       {currentMedia?.type === 'image' ? (
                         <img src={currentMedia.url} className="w-full h-full object-contain bg-black" alt={currentMedia.name} crossOrigin="anonymous" />
-                      ) : currentMedia?.type === 'document' || currentMedia?.type === 'rom' ? (
-                        <iframe src={currentMedia.url} className="w-full h-full bg-white" title={currentMedia.name} />
+                      ) : currentMedia?.type === 'document' || currentMedia?.type === 'rom' || currentMedia?.type === 'book' ? (
+                        <iframe src={currentMedia.url} className="w-full h-full bg-white relative z-[1]" title={currentMedia.name} />
                       ) : currentMedia?.url?.includes('youtube.com') || currentMedia?.url?.includes('youtu.be') ? (
                         <iframe 
                           src={`https://www.youtube.com/embed/${currentMedia.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1] ?? ''}?autoplay=1&mute=0&controls=1`}
@@ -1805,6 +1984,69 @@ export default function App() {
                            <span className="text-[8px] font-mono text-white/40 uppercase tracking-widest">Mesh Re-indexing In Progress</span>
                         </div>
                       )}
+                      
+                      <AnimatePresence>
+                        {showMediaInfoOverlay && currentMedia && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 20 }}
+                            className="absolute inset-0 bg-black/90 backdrop-blur-md z-50 flex flex-col p-6 overflow-y-auto"
+                          >
+                            <div className="flex justify-between items-start mb-6">
+                              <h3 className="text-xl font-bold text-white tracking-wide font-sans">{currentMedia.name}</h3>
+                              <button 
+                                onClick={() => setShowMediaInfoOverlay(false)}
+                                className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                              >
+                                <X className="w-4 h-4 text-white" />
+                              </button>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 text-xs font-mono mb-6 text-white/70">
+                              <div className="flex flex-col">
+                                <span className="text-white/40 mb-1">Type</span>
+                                <span className="uppercase text-brand-green">{currentMedia.type}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-white/40 mb-1">Category</span>
+                                <span className="uppercase">{currentMedia.category}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-white/40 mb-1">Source Node</span>
+                                <span className="truncate">{currentMedia.url.substring(0, 40)}...</span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-white/40 mb-1">Date Encoded</span>
+                                <span>{currentMedia.dateAdded}</span>
+                              </div>
+                              {streamQuality && (
+                                <div className="flex flex-col">
+                                  <span className="text-white/40 mb-1">Max Validated Bandwidth Qual.</span>
+                                  <span className="uppercase">{streamQuality}</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {currentMedia.tags && currentMedia.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                  {currentMedia.tags.map(tag => (
+                                    <span key={tag} className="px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] uppercase tracking-wider text-white/60">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                            )}
+                            
+                            {currentMedia.description && (
+                              <div className="mt-auto pt-4 border-t border-white/10">
+                                <span className="text-white/40 text-[10px] uppercase font-mono block mb-2 tracking-widest">Decrypted Synopsis</span>
+                                <p className="text-sm text-white/80 leading-relaxed font-sans">{currentMedia.description}</p>
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                     </>
                  ) : (
@@ -1875,6 +2117,7 @@ export default function App() {
                    {currentMedia?.type === 'media' && <Zap className="w-3 h-3 text-yellow-500" />}
                    {currentMedia?.type === 'image' && <ImageIcon className="w-3 h-3 text-purple-400" />}
                    {currentMedia?.type === 'document' && <FileText className="w-3 h-3 text-blue-400" />}
+                   {currentMedia?.type === 'book' && <Book className="w-3 h-3 text-orange-400" />}
                    {currentMedia?.type === 'rom' && <Gamepad2 className="w-3 h-3 text-orange-400" />}
                    <span className="text-[8px] font-black text-white uppercase tracking-widest">{currentMedia?.type.replace('_', ' ')}</span>
                  </div>
@@ -1979,6 +2222,13 @@ export default function App() {
                     </p>
                     <div className="flex items-center gap-4">
                        <div className="flex items-center bg-white/5 rounded-2xl border border-white/10 p-1 overflow-hidden">
+                          <motion.button 
+                             whileTap={{ scale: 0.9 }}
+                             onClick={handleSkipBackward}
+                             className={`p-3 transition-all rounded-xl hover:bg-brand-green hover:text-black text-white/60 ${!currentMedia && displayedResults.length === 0 ? 'opacity-20 pointer-events-none' : ''}`}
+                          >
+                             <SkipBack className="w-4 h-4 fill-current" />
+                          </motion.button>
                           <button 
                             onClick={handlePlay}
                             disabled={!currentMedia || isPlaying}
@@ -2006,6 +2256,22 @@ export default function App() {
                              className={`p-3 transition-all rounded-xl hover:bg-brand-green hover:text-black text-white/60 ${!currentMedia && displayedResults.length === 0 ? 'opacity-20 pointer-events-none' : ''}`}
                           >
                              <SkipForward className="w-4 h-4 fill-current" />
+                          </motion.button>
+                          <motion.button 
+                             whileTap={{ scale: 0.9 }}
+                             onClick={handleFullscreen}
+                             className={`p-3 transition-all rounded-xl hover:bg-white hover:text-black text-white/60 ${!currentMedia ? 'opacity-20 pointer-events-none' : ''}`}
+                             title="Fullscreen"
+                          >
+                             <Maximize className="w-4 h-4" />
+                          </motion.button>
+                          <motion.button 
+                             whileTap={{ scale: 0.9 }}
+                             onClick={() => setShowMediaInfoOverlay(prev => !prev)}
+                             className={`p-3 transition-all rounded-xl hover:bg-white hover:text-black text-white/60 ${!currentMedia ? 'opacity-20 pointer-events-none' : ''}`}
+                             title="Media Info"
+                          >
+                             <Info className="w-4 h-4" />
                           </motion.button>
                        </div>
                        

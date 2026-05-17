@@ -17,7 +17,7 @@ export interface GeneratorResponse {
 
 interface Provider {
   name: string;
-  run: (prompt: string, system: string, type: 'text' | 'json', temp: number) => Promise<any>;
+  run: (prompt: string, system: string, type: 'text' | 'json', temp: number, useSearch: boolean) => Promise<any>;
   check: () => boolean;
   isFailing: boolean;
   failureCount: number;
@@ -28,7 +28,17 @@ const FAILURE_THRESHOLD = 3;
 
 // --- Sanitization Utils ---
 const sanitizeJson = (content: string): any => {
-  const cleaned = content.replace(/```json\n?|\n?```/g, '').trim();
+  let cleaned = content.replace(/```json\n?|\n?```/g, '').trim();
+  
+  // Try to find a JSON block if there's leading/trailing text
+  const match = cleaned.match(/\[\s*\{.*\}\s*\]|\{\s*".*\}\s*/s);
+  if (match) {
+    cleaned = match[0];
+  }
+  
+  // Strip Google Search grounding citations like [1] or [1, 2] which break JSON parsing
+  cleaned = cleaned.replace(/\[\d+(?:,\s*\d+)*\]/g, "");
+  
   try {
     return JSON.parse(cleaned);
   } catch (e) {
@@ -39,7 +49,7 @@ const sanitizeJson = (content: string): any => {
 
 // --- Provider Implementation ---
 
-const runOllama: Provider["run"] = async (prompt, system, type, temp) => {
+const runOllama: Provider["run"] = async (prompt, system, type, temp, useSearch) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT);
   
@@ -62,30 +72,40 @@ const runOllama: Provider["run"] = async (prompt, system, type, temp) => {
   return data.response;
 };
 
-const runGemini: Provider["run"] = async (prompt, system, type, temp) => {
+const runGemini: Provider["run"] = async (prompt, system, type, temp, useSearch) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT);
   
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || 'gemini-1.5-pro'}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  
+  const payload: any = {
+    contents: [{ parts: [{ text: `${system}\n\n${prompt}` }] }],
+    generationConfig: { temperature: temp }
+  };
+  
+  if (useSearch) {
+    payload.tools = [{ googleSearch: {} }];
+  } else if (type === 'json') {
+    payload.generationConfig.responseMimeType = "application/json";
+  }
+
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: `${system}\n\n${prompt}` }] }],
-      generationConfig: { temperature: temp }
-    }),
+    body: JSON.stringify(payload),
     signal: controller.signal
   }).finally(() => clearTimeout(timeout));
   
   if (!res.ok) throw new Error(`API_ERROR_GEMINI (${res.status})`);
   const data = await res.json();
   if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+    console.error("[GEMINI] Invalid Response:", JSON.stringify(data, null, 2));
     throw new Error("INVALID_RESPONSE_STRUCTURE");
   }
   return data.candidates[0].content.parts[0].text;
 };
 
-const runNvidia: Provider["run"] = async (prompt, system, type, temp) => {
+const runNvidia: Provider["run"] = async (prompt, system, type, temp, useSearch) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT);
   
@@ -124,12 +144,14 @@ export async function generate({
   prompt, 
   systemInstruction, 
   responseType = 'text', 
-  temperature = 0.7 
+  temperature = 0.7,
+  useSearch = false
 }: { 
   prompt: string; 
   systemInstruction: string; 
   responseType?: 'text' | 'json'; 
-  temperature?: number 
+  temperature?: number;
+  useSearch?: boolean;
 }): Promise<GeneratorResponse> {
   const errors: Record<string, any> = {};
 
@@ -147,7 +169,7 @@ export async function generate({
     console.log(`[AI_KERNEL] [${new Date().toISOString()}] Attempting: ${provider.name.toUpperCase()}...`);
       
     try {
-      const rawResult = await provider.run(prompt, systemInstruction, responseType, temperature);
+      const rawResult = await provider.run(prompt, systemInstruction, responseType, temperature, useSearch);
       const content = responseType === 'json' ? sanitizeJson(rawResult) : rawResult;
       
       provider.failureCount = 0; // Reset on success
