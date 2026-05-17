@@ -298,6 +298,7 @@ export default function App() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [hoveredMedia, setHoveredMedia] = useState<MediaResult | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isUserStoppingRef = useRef(false);
   
   const [isKernelBooting, setIsKernelBooting] = useState(true);
   const [isVideoFloating, setIsVideoFloating] = useState(false);
@@ -718,6 +719,11 @@ export default function App() {
   };
 
   const playMedia = async (media: MediaResult, isRetry = false) => {
+    // Force stop everything before switching
+    handleStop();
+    
+    isUserStoppingRef.current = false;
+    
     if (!isRetry) {
       setReconnectCount(0);
       setIsReconnecting(false);
@@ -923,6 +929,7 @@ export default function App() {
   }, [currentMedia]);
 
   const handleStreamError = (media: MediaResult) => {
+    if (isUserStoppingRef.current) return;
     if (reconnectCount < MAX_RECONNECT_ATTEMPTS) {
       setIsReconnecting(true);
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
@@ -1102,17 +1109,29 @@ export default function App() {
   };
 
   const handleStop = () => {
+    isUserStoppingRef.current = true;
     if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     setIsPlaying(false);
+    setIsReconnecting(false);
+    setReconnectCount(0);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current.src = "";
+      audioRef.current.load(); // Force reset
     }
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
       videoRef.current.src = "";
+      // Explicitly clear HLS if active, though handled below
+      if (videoRef.current.hasChildNodes()) {
+         // Some browsers/HLS implementations might need this
+         while(videoRef.current.firstChild) {
+            videoRef.current.removeChild(videoRef.current.firstChild);
+         }
+      }
+      videoRef.current.load(); // Force reset
     }
     if (hlsRef.current) {
       hlsRef.current.destroy();
@@ -2179,17 +2198,8 @@ export default function App() {
                     {(isVideoFloating && isVideoMinimized) && (
                         <div className="flex-1" />
                     )}
-                    <motion.div
-                        ref={mediaContainerRef}
-                        drag={isVideoFloating}
-                        dragMomentum={false}
-                        initial={false}
-                        animate={
-                          isVideoMinimized ? { scale: 0, opacity: 0, y: 200 } :
-                          isVideoFloating ? { scale: 1, opacity: 1, position: 'fixed', top: 20, right: 20, zIndex: 100, width: "400px", aspectRatio: "16/9" } :
-                          { scale: 1, opacity: 1, position: 'relative', width: '100%', height: '100%', top: 'auto', right: 'auto', zIndex: 1, y: 0 }
-                        }
-                        className={`${isVideoFloating ? "shadow-2xl border border-brand-green/30 cursor-move backdrop-blur-xl" : "flex-1 border border-brand-green/20"} bg-black rounded-2xl relative overflow-hidden flex items-center justify-center group`}
+                    <div
+                        className="flex-1 border border-brand-green/20 bg-black rounded-2xl relative overflow-hidden flex items-center justify-center group"
                     >
                       {currentMedia?.type === 'radio' ? (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-brand-green/10 to-black p-6 relative">
@@ -2219,14 +2229,29 @@ export default function App() {
                           allowFullScreen
                         />
                       ) : (
-                        <video 
-                          ref={videoRef} 
-                          onEnded={() => setIsPlaying(false)}
-                          className={`w-full h-full object-cover transition-opacity duration-700 ${isReconnecting ? 'opacity-20' : 'opacity-100'}`} 
-                          controls={false} 
-                          muted={false} 
-                          crossOrigin="anonymous" 
-                        />
+                        <div id="video-container" className="relative w-full h-full group overflow-hidden flex items-center justify-center bg-black">
+                          <video 
+                            ref={videoRef} 
+                            onEnded={() => setIsPlaying(false)}
+                            className={`max-h-full max-w-full transition-opacity duration-700 ${isReconnecting ? 'opacity-20' : 'opacity-100'}`} 
+                            controls={false} 
+                            muted={false} 
+                            crossOrigin="anonymous" 
+                          />
+                          <button 
+                            onClick={() => {
+                                const container = document.getElementById('video-container');
+                                if (!document.fullscreenElement) {
+                                    container?.requestFullscreen().catch(e => console.error(e));
+                                } else {
+                                    document.exitFullscreen().catch(e => console.error(e));
+                                }
+                            }}
+                            className="absolute bottom-4 right-4 z-50 p-2 bg-black/60 rounded hover:bg-white/20 transition-all border border-white/10 opacity-0 group-hover:opacity-100"
+                          >
+                            <Maximize2 className="w-4 h-4 text-white" />
+                          </button>
+                        </div>
                       )}
                       
                        {isSubtitleEnabled && (subtitles || isGeneratingSubtitles) && (
@@ -2264,22 +2289,7 @@ export default function App() {
                           )}
                         </div>
 
-                         {isVideoFloating && (
-                           <button onClick={() => setIsVideoMinimized(true)} className="bg-black/60 p-1.5 rounded hover:bg-white/10 transition-colors border border-white/10" title="Minimize to tray">
-                             <Command className="w-3.5 h-3.5 text-white/70 hover:text-white" />
-                           </button>
-                         )}
-                         <button
-                           onClick={() => {
-                              setIsVideoFloating(!isVideoFloating);
-                              if (isVideoFloating) setIsVideoMinimized(false);
-                           }}
-                           className="bg-black/60 p-1.5 rounded hover:bg-white/10 transition-colors border border-white/10"
-                           title={isVideoFloating ? "Dock Video" : "Detach Video"}
-                         >
-                           {isVideoFloating ? <ChevronRight className="w-3.5 h-3.5 text-white/70 hover:text-white" /> : <ExternalLink className="w-3.5 h-3.5 text-white/70 hover:text-white" />}
-                         </button>
-                      </div>
+                        </div>
                       <div className="absolute bottom-3 right-3">
                         <div className={`flex items-center gap-1 bg-black/60 px-2 py-1 rounded text-[8px] font-mono uppercase tracking-tighter ${isReconnecting ? 'text-red-500' : 'text-brand-green'}`}>
                           {isReconnecting ? (
@@ -2300,6 +2310,8 @@ export default function App() {
                            <span className="text-[8px] font-mono text-white/40 uppercase tracking-widest">Mesh Re-indexing In Progress</span>
                         </div>
                       )}
+                      
+                     </div>
                       
                       <AnimatePresence>
                         {showMediaInfoOverlay && currentMedia && (
@@ -2398,7 +2410,6 @@ export default function App() {
                           </motion.div>
                         )}
                       </AnimatePresence>
-                    </motion.div>
                     </>
                  ) : (
                    <div className="flex-1 bg-black/40 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col items-center justify-center p-8 group">
