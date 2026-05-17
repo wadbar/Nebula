@@ -61,7 +61,8 @@ import {
   CheckCircle,
   AlertCircle,
   Info,
-  Book
+  Book,
+  Power
 } from "lucide-react";
 import { motion, AnimatePresence, Reorder } from "motion/react";
 import Hls from "hls.js";
@@ -94,7 +95,7 @@ interface MediaResult {
   category?: string;
   description: string;
   tags: string[];
-  health?: 'optimal' | 'degraded' | 'unknown';
+  health?: 'optimal' | 'degraded' | 'unknown' | 'broken';
   relevance_score?: number;
   rating?: number;
   engagement?: "low" | "medium" | "high";
@@ -103,6 +104,14 @@ interface MediaResult {
   chain_verified?: boolean;
   registry_hash?: string;
   last_block?: number;
+  lat?: number;
+  lng?: number;
+  studio?: string;
+  year?: string;
+  quality?: string;
+  engine?: string;
+  mirrors?: string[];
+  latency?: number;
 }
 
 interface ValidationResult {
@@ -116,31 +125,72 @@ interface ValidationResult {
 
 const DARK_MAP_ID = "dark_mesh_v1";
 
-const NetworkMap = ({ nodes, active }: { nodes: NodeLocation[], active: boolean }) => {
+const NetworkMap = ({ nodes, results, active, onSelect }: { nodes: NodeLocation[], results: MediaResult[], active: boolean, onSelect?: (item: MediaResult) => void }) => {
   const map = useMap();
   
   useEffect(() => {
-    if (map && nodes.length > 0) {
+    if (map && (nodes.length > 0 || results.length > 0)) {
       const bounds = new google.maps.LatLngBounds();
       nodes.forEach(node => bounds.extend(node));
-      map.fitBounds(bounds);
+      results.forEach(res => {
+        if (res.lat !== undefined && res.lng !== undefined) {
+          bounds.extend({ lat: res.lat, lng: res.lng });
+        }
+      });
+      map.fitBounds(bounds, 50);
     }
-  }, [map, nodes]);
+  }, [map, nodes, results]);
 
-  if (!active) return null;
+  if (!active && results.length === 0) return null;
 
   return (
     <>
+      {/* Consensus Validator Nodes */}
       {nodes.map((node) => (
         <AdvancedMarker
           key={node.id}
           position={{ lat: node.lat, lng: node.lng }}
         >
-          <div className="relative">
-             <div className={`w-3 h-3 rounded-full ${node.status === 'active' ? 'bg-brand-green shadow-[0_0_10px_#00FF41]' : 'bg-red-500 shadow-[0_0_10px_#EF4444]'} animate-pulse`} />
-             <div className="absolute -inset-2 bg-brand-green/10 rounded-full animate-ping opacity-20" />
+          <div className="relative group/validator">
+             <div className={`w-2 h-2 rounded-full ${node.status === 'active' ? 'bg-brand-green/40 shadow-[0_0_5px_#00FF41]' : 'bg-red-500/40'} animate-pulse`} />
+             <div className="absolute inset-0 bg-brand-green/5 rounded-full animate-ping opacity-10" />
+             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover/validator:opacity-100 transition-opacity bg-black/80 border border-white/10 px-2 py-1 rounded whitespace-nowrap pointer-events-none z-[200]">
+                <span className="text-[7px] font-mono text-brand-green">VALIDATOR_{node.id}</span>
+             </div>
           </div>
         </AdvancedMarker>
+      ))}
+
+      {/* Media Feed Nodes */}
+      {results.map((res, i) => (
+        res.lat !== undefined && res.lng !== undefined && (
+          <AdvancedMarker
+            key={`${res.url}-${i}`}
+            position={{ lat: res.lat, lng: res.lng }}
+            onClick={() => onSelect?.(res)}
+          >
+            <div className="relative group/node cursor-pointer">
+               <div className={`w-3.5 h-3.5 rounded-full border border-white/20 flex items-center justify-center transition-transform hover:scale-125 ${res.health === 'optimal' ? 'bg-brand-green shadow-[0_0_15px_rgba(0,255,65,0.4)]' : 'bg-yellow-500'}`}>
+                  {res.type === 'radio' && <Radio className="w-2 h-2 text-black" />}
+                  {res.type === 'video' && <Video className="w-2 h-2 text-black" />}
+                  {['live_cam', 'webcam', 'stream'].includes(res.type) && <Camera className="w-2 h-2 text-black" />}
+                  {!['radio', 'video', 'live_cam', 'webcam', 'stream'].includes(res.type) && <Activity className="w-2 h-2 text-black" />}
+               </div>
+               
+               {/* Marker Tooltip */}
+               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover/node:opacity-100 transition-all bg-[#0a0a0a]/95 border border-brand-green/30 p-2 rounded-lg shadow-2xl backdrop-blur-xl min-w-[140px] z-[210] pointer-events-none">
+                  <div className="flex items-center gap-2 mb-1">
+                     <div className={`w-1 h-1 rounded-full ${res.health === 'optimal' ? 'bg-brand-green' : 'bg-yellow-500'} animate-pulse`} />
+                     <span className="text-[10px] font-black text-white uppercase truncate">{res.name}</span>
+                  </div>
+                  <div className="flex justify-between text-[7px] font-mono text-white/40 uppercase">
+                     <span>{res.type}</span>
+                     <span className="text-brand-green">NODE_LINKED</span>
+                  </div>
+               </div>
+            </div>
+          </AdvancedMarker>
+        )
       ))}
     </>
   );
@@ -189,15 +239,15 @@ export default function App() {
 
   const categories = ["All", "video", "radio", "live_cam", "media", "image", "document", "book", "rom"];
   const categoryLabels: Record<string, string> = {
-    "All": "ALL",
-    "video": "VIDEO",
-    "radio": "RADIO / AUDIO",
-    "live_cam": "STREAMING / CAMS",
-    "media": "DIGITAL MEDIA",
-    "image": "IMAGES",
-    "document": "DOCUMENTS",
-    "book": "BOOKS",
-    "rom": "GAMES / ROMS"
+    "All": "Global Mesh",
+    "video": "Motion Feed",
+    "radio": "Hyper Resonance Nodes",
+    "live_cam": "Feed Matrix",
+    "media": "Digital Assets",
+    "image": "Visual Boards",
+    "document": "Dossiers",
+    "book": "Manuscripts",
+    "rom": "Binary Vault"
   };
   const categoryIcons: Record<string, any> = {
     "All": Globe,
@@ -229,7 +279,14 @@ export default function App() {
   }, [streamQuality]);
   const [intelBrief, setIntelBrief] = useState<string | null>(null);
   const [intelLoading, setIntelLoading] = useState(false);
-  const [systemStats, setSystemStats] = useState({ cpu: 12, ram: 22, net: 45, uptime: "00:00:00" });
+  const [systemStats, setSystemStats] = useState({ 
+    cpu: 12, 
+    ram: 22, 
+    net: 45, 
+    latency: 24,
+    packetLoss: 0.01,
+    uptime: "00:00:00" 
+  });
   const [workerActive, setWorkerActive] = useState(false);
   const [scannerStep, setScannerStep] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
@@ -239,10 +296,22 @@ export default function App() {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [isFloating, setIsFloating] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [hoveredMedia, setHoveredMedia] = useState<MediaResult | null>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
+  const [isKernelBooting, setIsKernelBooting] = useState(true);
   const [isVideoFloating, setIsVideoFloating] = useState(false);
   const [isVideoMinimized, setIsVideoMinimized] = useState(false);
   const [showMediaInfoOverlay, setShowMediaInfoOverlay] = useState(false);
+  const [activeEngine, setActiveEngine] = useState<"NEBULA_DEEP" | "OSINT_SURFACE" | "ONION_CRAWLER" | "QUANTUM_MESH">("QUANTUM_MESH");
+  const [streamInfo, setStreamInfo] = useState<{
+    resolution?: string;
+    bitrate?: string;
+    codec?: string;
+    fps?: number;
+    latency?: string;
+    buffer?: number;
+  }>({});
   
   // Subtitles State
   const [subtitles, setSubtitles] = useState<string>("");
@@ -253,6 +322,11 @@ export default function App() {
   const RECONNECT_DELAY = 3000; // 3 seconds
 
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsKernelBooting(false), 3500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const workerRef = useRef<Worker | null>(null);
 
@@ -279,17 +353,21 @@ export default function App() {
       const m = Math.floor((elapsed % 3600) / 60).toString().padStart(2, '0');
       const s = (elapsed % 60).toString().padStart(2, '0');
       
-      setSystemStats({
+      setSystemStats(prev => ({
         cpu: Math.floor(Math.random() * 15) + 5,
         ram: 24,
-        net: Math.floor(Math.random() * 50) + 20,
+        net: Math.max(10, Math.min(999, prev.net + (Math.random() - 0.5) * 50)),
+        latency: Math.max(5, Math.min(150, prev.latency + (Math.random() - 0.5) * 5)),
+        packetLoss: Math.max(0, Math.min(5, prev.packetLoss + (Math.random() - 0.5) * 0.05)),
         uptime: `${h}:${m}:${s}`
-      });
+      }));
     }, 1000);
     return () => clearInterval(itv);
   }, []);
 
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const searchController = useRef<AbortController | null>(null);
+
   const fetchIntelController = useRef<AbortController | null>(null);
 
   const fetchIntel = async (signal: MediaResult) => {
@@ -493,29 +571,31 @@ export default function App() {
     const finalQuery = manualQuery || query;
     if (!finalQuery) return;
     
-    if (searchController.current) {
-       searchController.current.abort();
-    }
+    if (searchController.current) searchController.current.abort();
     searchController.current = new AbortController();
 
     setLoading(true);
     setScanProgress(0);
     setScannerStep(1);
-    addLog(`[MESH] DEEP_SCAN_INITIATED for: "${finalQuery.toUpperCase()}"`, "info");
+    addLog(`[OMEGA_UPGRADE] NEBULA_PROTOCOL_V13_ACTIVE`, "security");
+    addLog(`[RESONANCE] CALCULATING OMEGA-VECTORS [V13] FOR: "${finalQuery}"`, "info");
     
     const steps = [
-      "INITIALIZING NEBULA_CORE_V3 DEEP ROUTER...",
-      "ESTABLISHING ONION TUNNELS & PROXY CHAINS...",
-      "SCANNING GLOBAL MESH: OTAKU, CAM & BROADCAST NODES...",
-      "BYPASSING REGIONAL FILTERS & VALIDATING INTEGRITY...",
-      "ONION TUNNELS SECURED. DECRYPTING STREAM METADATA...",
-      "DEEP WEB PROTOCOL ESTABLISHED."
+      "OMEGA_RESONANCE_SCAN_V13: ASSIMILATING COCOSCRAPER & UNIVERSAL ARCHITECTURES...",
+      "SPECTRAL_ISOLATION: INITIALIZING OMEGA-TV & CINEMA CORE VALIDATION...",
+      activeEngine === "ONION_CRAWLER" 
+        ? "TORCH_AHMIA_RESONANCE: PENETRATING DECENTRALIZED ONION INDEXES..."
+        : activeEngine === "QUANTUM_MESH"
+          ? "QUANTUM_MESH_PROBE: SYNCHRONIZING SIGMA & EPSILON VECTORS..."
+          : "DEEP_VAULT_PROBE: SIMULATING UNIVERSAL MOVIE SCRAPER [TMDb/XEM]...",
+      "SIGNAL_HARMONIZATION: EXFILTRATING REAL-DEBRID & P2P MANIFESTS...",
+      "NEURAL_FORENSICS: VALIDATING OMEGA V13 SCHEMA & MAGNET RESOLUTION...",
+      "OMEGA_TUNNEL_LOGGED: SECURING QUANTUM-SAFE ENCRYPTED PATHS..."
     ];
 
     try {
-      let searchType = activeTab;
-      if (activeTab === "favorites" || activeTab === "history") {
-        setActiveTab("all");
+      let searchType = activeCategory !== "All" ? activeCategory : activeTab;
+      if (searchType === "favorites" || searchType === "history" || searchType === "playlists") {
         searchType = "all";
       }
 
@@ -551,7 +631,7 @@ export default function App() {
           const response = await fetch("/api/discover", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: q, type: searchType }),
+            body: JSON.stringify({ query: q, type: searchType, engine: activeEngine }),
             signal: searchController.current.signal
           });
           if (response.ok) {
@@ -704,41 +784,50 @@ export default function App() {
     if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume();
     }
-
-    if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-    }
-
-    if (media.type === "radio" && audioRef.current) {
-        if (videoRef.current) {
-          videoRef.current.pause();
-          videoRef.current.src = "";
-        }
-        audioRef.current.src = media.url;
-        audioRef.current.onerror = (e) => {
-            console.error("Radio playback error:", e);
-            handleStreamError(media);
-        };
-        audioRef.current.onplay = () => {
-            setIsReconnecting(false);
-            if (isRetry) addLog(`[SUCCESS] Signal restored for ${media.name}.`, "success");
-        };
-        audioRef.current.play().catch(e => {
-          console.error("Playback error:", e);
-          addLog("Playback connection refused by peer node.", "warn");
-          handleStreamError(media);
-        });
-    }
   };
 
   useEffect(() => {
     if (!currentMedia) return;
 
-    if (currentMedia.type === "image" || currentMedia.type === "document" || currentMedia.type === "rom") {
-        setIsPlaying(true);
+    // Reset Reconnect state on new media
+    setIsReconnecting(false);
+    setReconnectCount(0);
+    setStreamInfo({});
+
+    // Stop and clear previous state
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (currentMedia.type === "radio" && audioRef.current) {
+      const audio = audioRef.current;
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.src = "";
+      }
+      audio.src = currentMedia.url;
+      audio.onloadedmetadata = () => {
+        setStreamInfo(prev => ({
+          ...prev,
+          codec: 'Audio/MPEG',
+          bitrate: 'VBR/Constant'
+        }));
+      };
+      audio.onerror = () => handleStreamError(currentMedia);
+      audio.onplay = () => {
         setIsReconnecting(false);
-        setReconnectCount(0);
+        addLog(`[SUCCESS] Audio sync established: ${currentMedia.name}`, "success");
+      };
+      audio.play().catch(e => {
+        console.error("Audio error", e);
+        handleStreamError(currentMedia);
+      });
+      return;
+    }
+
+    if (currentMedia.type === "image" || currentMedia.type === "document" || currentMedia.type === "rom" || currentMedia.type === "book") {
+        setIsPlaying(true);
         addLog(`${currentMedia.type.toUpperCase()} Feed linked: ${currentMedia.name}`, "info");
         return;
     }
@@ -752,20 +841,13 @@ export default function App() {
         const isYouTube = currentMedia.url.includes("youtube.com") || currentMedia.url.includes("youtu.be");
         if (isYouTube) {
           setIsPlaying(true);
-          setIsReconnecting(false);
-          setReconnectCount(0);
-          addLog(`YouTube Feed linked: ${currentMedia.name}`, "info");
+          addLog(`YouTube feed connected: ${currentMedia.name}`, "info");
         } else {
-          // Wrap in a tiny timeout to ensure React paints the new `<video>` tag
+          // Video tag playback
           setTimeout(() => {
             if (!videoRef.current) return;
             const video = videoRef.current;
             
-            if (hlsRef.current) {
-              hlsRef.current.destroy();
-              hlsRef.current = null;
-            }
-
             if (Hls.isSupported() && currentMedia.url.includes('.m3u8')) {
               const hls = new Hls({
                 autoStartLoad: true,
@@ -779,16 +861,36 @@ export default function App() {
                 applyQualityToHls(hls, streamQuality);
                 video.play().catch(e => {
                   console.error("Playback error", e);
-                  addLog(`Stream initiation failed: ${e.message}`, "warn");
                   handleStreamError(currentMedia);
                 });
                 setIsReconnecting(false);
-                addLog(`[SUCCESS] Signal restored for ${currentMedia.name}.`, "success");
+                addLog(`[SUCCESS] Video mesh established: ${currentMedia.name}`, "success");
+              });
+
+              hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+                const level = hls.levels[data.level];
+                if (level) {
+                   setStreamInfo(prev => ({
+                     ...prev,
+                     resolution: `${level.width}x${level.height}`,
+                     bitrate: `${(level.bitrate / 1000000).toFixed(2)} Mbps`,
+                     codec: level.videoCodec || level.audioCodec || 'H.264'
+                   }));
+                }
+              });
+
+              hls.on(Hls.Events.FRAG_BUFFERED, (_, data) => {
+                 if (video) {
+                    const buffered = video.buffered;
+                    if (buffered.length > 0) {
+                       const bufferLen = buffered.end(buffered.length - 1) - video.currentTime;
+                       setStreamInfo(prev => ({ ...prev, buffer: parseFloat(bufferLen.toFixed(2)) }));
+                    }
+                 }
               });
 
               hls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
-                  addLog(`[HLS_FATAL_ERROR] ${data.type}: ${data.details}`, "warn");
                   handleStreamError(currentMedia);
                   hls.destroy();
                   hlsRef.current = null;
@@ -798,14 +900,20 @@ export default function App() {
               hlsRef.current = hls;
             } else {
               video.src = currentMedia.url;
+              video.onloadedmetadata = () => {
+                setStreamInfo(prev => ({
+                  ...prev,
+                  resolution: `${video.videoWidth}x${video.videoHeight}`,
+                  codec: 'Native'
+                }));
+              };
               video.onplay = () => {
                 setIsReconnecting(false);
-                addLog(`[SUCCESS] Signal restored for ${currentMedia.name}.`, "success");
+                addLog(`[SUCCESS] Native signal restored: ${currentMedia.name}`, "success");
               };
               video.onerror = () => handleStreamError(currentMedia);
               video.play().catch(e => {
                 console.error("Playback error", e);
-                addLog(`Native video playback failed: ${e.message}`, "warn");
                 handleStreamError(currentMedia);
               });
             }
@@ -866,23 +974,25 @@ export default function App() {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      const barWidth = (canvas.width / bufferLength) * 2.5;
+      const barWidth = (canvas.width / 2 / (bufferLength / 2)) * 1.5;
       let barHeight;
-      let x = 0;
+      const centerX = canvas.width / 2;
 
-      for (let i = 0; i < bufferLength; i++) {
-        barHeight = (dataArray[i] / 255) * canvas.height;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#00FF41';
+
+      for (let i = 0; i < bufferLength / 2; i++) {
+        barHeight = (dataArray[i] / 255) * (canvas.height * 0.8);
         
-        const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
-        gradient.addColorStop(0, '#00FF41');
-        gradient.addColorStop(1, '#003B00');
+        const hue = 140 + (i / bufferLength) * 100;
+        ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${0.3 + (dataArray[i]/255)})`;
         
-        ctx.fillStyle = gradient;
-        ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
-        
-        x += barWidth;
+        // Symmetrical bars
+        ctx.fillRect(centerX + (i * barWidth), (canvas.height - barHeight) / 2, barWidth - 1, barHeight);
+        ctx.fillRect(centerX - (i * barWidth), (canvas.height - barHeight) / 2, barWidth - 1, barHeight);
       }
       
+      ctx.shadowBlur = 0;
       requestRef.current = requestAnimationFrame(draw);
     };
 
@@ -1231,36 +1341,41 @@ export default function App() {
 
   const handlePause = () => {
     if (isPlaying) {
-      if (audioRef.current && !audioRef.current.paused) {
+      const type = currentMedia?.type;
+      
+      if (type === 'radio' && audioRef.current) {
         audioRef.current.pause();
+      } else if ((type === 'video' || type === 'live_cam' || type === 'media') && videoRef.current) {
+        // Only pause if not YouTube (YouTube is in iframe)
+        if (!currentMedia?.url.includes("youtube.com") && !currentMedia?.url.includes("youtu.be")) {
+          videoRef.current.pause();
+        }
       }
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
-      }
-      if (currentMedia?.type === 'document' || currentMedia?.type === 'image' || currentMedia?.type === 'rom' || currentMedia?.type === 'book' || currentMedia?.url.includes('youtube')) {
-        // Cannot programmatically pause iframes purely without API natively easily here, so we just toggle state
-      }
+      
       setIsPlaying(false);
-      addLog("Stream paused.", "info");
+      addLog("Stream session suspended.", "info");
     }
   };
 
   const handlePlay = () => {
     if (!isPlaying && currentMedia) {
-      if (audioRef.current && currentMedia.type === 'radio') {
+      const type = currentMedia.type;
+      
+      if (type === 'radio' && audioRef.current) {
         audioRef.current.play().catch(e => {
           addLog("Error resuming audio stream.", "warn");
         });
-      }
-      if (videoRef.current && (currentMedia.type === 'video' || currentMedia.type === 'live_cam' || currentMedia.type === 'media')) {
+      } else if ((type === 'video' || type === 'live_cam' || type === 'media') && videoRef.current) {
+        // Only play if not YouTube
         if (!currentMedia.url.includes("youtube.com") && !currentMedia.url.includes("youtu.be")) {
           videoRef.current.play().catch(e => {
             addLog("Error resuming video stream.", "warn");
           });
         }
       }
+      
       setIsPlaying(true);
-      addLog("Stream playing.", "info");
+      addLog("Signal synchronization active.", "info");
     }
   };
 
@@ -1293,12 +1408,30 @@ export default function App() {
             internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
             style={{ width: '100%', height: '100%' }}
           >
-            <NetworkMap nodes={validationData?.nodes || []} active={!!validationData} />
+            <NetworkMap 
+              nodes={validationData?.nodes || []} 
+              results={results}
+              active={true}
+              onSelect={(item) => playMedia(item)}
+            />
           </Map>
         </APIProvider>
-        <div className="absolute top-2 left-2 bg-black/60 px-2 py-1 rounded border border-white/10 backdrop-blur-md">
-           <span className="text-[8px] font-black text-brand-green uppercase tracking-widest">Mesh_Live_Distribution</span>
+        <div className="absolute top-2 left-2 flex items-center gap-2 bg-black/60 px-2 py-1 rounded border border-white/10 backdrop-blur-md">
+           <Globe className="w-2.5 h-2.5 text-brand-green animate-pulse" />
+           <span className="text-[8px] font-black text-brand-green uppercase tracking-widest">Global_Mesh_Distribution</span>
         </div>
+        
+        <div className="absolute bottom-2 left-2 bg-black/80 p-2 rounded-lg border border-white/5 backdrop-blur-md max-w-[120px]">
+           <div className="flex items-center justify-between text-[7px] font-mono text-white/40 mb-1">
+              <span>ACTIVE_NODES:</span>
+              <span className="ml-2 text-brand-green">{results.filter(r => r.health === 'optimal').length}</span>
+           </div>
+           <div className="flex items-center justify-between text-[7px] font-mono text-white/40">
+              <span>DEGRADED:</span>
+              <span className="ml-2 text-yellow-500">{results.filter(r => r.health !== 'optimal' && r.health !== 'broken').length}</span>
+           </div>
+        </div>
+
         {validationData && (
           <div className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded border border-brand-green/20 backdrop-blur-md">
              <span className="text-[8px] font-mono text-brand-green uppercase">{validationData.consensus_nodes} VALIDATOR_NODES_LOCALIZED</span>
@@ -1404,19 +1537,41 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen w-full bg-[#050505] text-white p-4 font-sans select-none overflow-hidden flex flex-col gap-4">
+    <div className="h-screen w-full bg-[#050505] text-white p-4 font-sans select-none overflow-hidden flex flex-col gap-4 relative">
+      {/* GLOBAL DATA TRACE BACKGROUND */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none overflow-hidden z-0">
+        <div className="absolute inset-0 bg-[url('https://api.studio/assets/grid.svg')] bg-[size:40px_40px]" />
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{ x: -100, y: Math.random() * 100 + "%", opacity: 0 }}
+            animate={{ 
+              x: "110%", 
+              opacity: [0, 1, 0] 
+            }}
+            transition={{ 
+              duration: 5 + Math.random() * 10, 
+              repeat: Infinity, 
+              delay: i * 2,
+              ease: "linear"
+            }}
+            className="h-[1px] w-48 bg-gradient-to-r from-transparent via-brand-green to-transparent"
+          />
+        ))}
+      </div>
+      
       {/* GLOBAL STATUS BAR */}
       <div className="h-8 shrink-0 flex items-center justify-between px-6 bg-white/5 border border-white/10 rounded-xl overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-r from-brand-green/5 via-transparent to-brand-green/5 animate-pulse pointer-events-none" />
         <div className="flex items-center gap-6 relative z-10">
-          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse" />
-            <span className="text-[10px] font-black tracking-widest text-white/80 uppercase">Nebula_V3_Kernel</span>
+            <span className="text-[10px] font-black tracking-widest text-white/80 uppercase">Nebula_V13_Omega_Kernel</span>
           </div>
           {workerActive && (
             <div className="flex items-center gap-2 text-brand-cyan/80 animate-pulse border-l border-white/10 pl-6 h-4">
               <Cpu className="w-3 h-3" />
-              <span className="text-[9px] font-black tracking-widest uppercase">HDW_OFFLOAD_ACTIVE</span>
+              <span className="text-[9px] font-black tracking-widest uppercase">Omega_Accelerator_V13_Active</span>
             </div>
           )}
           <div className="h-4 w-[1px] bg-white/10" />
@@ -1450,30 +1605,31 @@ export default function App() {
         
         {/* Left Column: Navigation & Stats */}
         <aside className="col-span-3 row-span-4 bento-card p-6 flex flex-col justify-between overflow-hidden relative group">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,255,65,0.03),transparent)] pointer-events-none" />
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <Layers className="w-32 h-32 rotate-12" />
           </div>
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-8 h-8 bg-brand-green rounded flex items-center justify-center shadow-[0_0_10px_rgba(0,255,65,0.3)]">
-                <Search className="w-5 h-5 text-black" />
+              <div className="w-8 h-8 bg-brand-green rounded flex items-center justify-center shadow-[0_0_15px_rgba(0,255,65,0.4)]">
+                <Cpu className="w-5 h-5 text-black animate-pulse" />
               </div>
               <div>
-                <h1 className="text-sm font-black text-white tracking-widest uppercase">OS_NEBULA</h1>
-                <p className="text-[8px] text-brand-green font-mono uppercase opacity-60">System Version 3.4.0</p>
+                <h1 className="text-sm font-black text-white tracking-[0.2em] uppercase">NEBULA_OMEGA_V13</h1>
+                <p className="text-[8px] text-brand-green font-mono uppercase opacity-60">Omega Resonance Engine v13.0.0 [Quantum_Safe]</p>
               </div>
             </div>
             <div className="space-y-2">
               {[
                 { id: 'all', icon:Globe, label: 'GLOBAL MESH' },
-                { id: 'radio', icon:Radio, label: 'FM_WAVES' },
-                { id: 'video', icon:Video, label: 'NERD / OTAKU / SCENE' },
-                { id: 'live_cam', icon:Monitor, label: 'MORTAL KOMBAT' },
-                { id: 'media', icon:Zap, label: 'DARK ARCHIVES' },
+                { id: 'radio', icon:Radio, label: 'AUDIO / RADIO' },
+                { id: 'video', icon:Video, label: 'VIDEO / MOTION' },
+                { id: 'live_cam', icon:Monitor, label: 'LIVE FEED / CAMS' },
+                { id: 'media', icon:Zap, label: 'DIGITAL MEDIA' },
                 { id: 'image', icon:ImageIcon, label: 'IMAGE BOARDS' },
-                { id: 'document', icon:FileText, label: 'LEAKED DOCS' },
-                { id: 'book', icon:Book, label: 'BIBLIOTECA DIGITAL' },
-                { id: 'rom', icon:Gamepad2, label: 'RETRO ROMS' },
+                { id: 'document', icon:FileText, label: 'DOCUMENTS' },
+                { id: 'book', icon:Book, label: 'DIGITAL BOOKS' },
+                { id: 'rom', icon:Gamepad2, label: 'ROM ARCHIVE' },
                 { id: 'favorites', icon:Star, label: 'SAVED_NODES' },
                 { id: 'history', icon:Clock, label: 'SIGNAL_HISTORY' },
                 { id: 'playlists', icon:List, label: 'TUNNELS' }
@@ -1501,25 +1657,63 @@ export default function App() {
           </div>
 
           <div className="space-y-4 pt-6 border-t border-white/5">
-             <div className="space-y-2">
-                <div className="flex justify-between text-[10px] text-white/30 uppercase tracking-tighter">
-                   <span>Throughput</span>
-                   <span className="text-brand-green">820 MB/S</span>
+            <h4 className="text-[10px] font-black text-white/30 tracking-[0.2em] uppercase mb-1">Network_Telemetry</h4>
+            
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <div className="flex justify-between text-[9px] text-white/50 tracking-widest uppercase">
+                   <span>Bandwidth</span>
+                   <span className="text-brand-green font-mono">{systemStats.net.toFixed(1)} MB/s</span>
                 </div>
                 <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                   <div className="h-full bg-brand-green w-[82%] shadow-[0_0_10px_#00FF41]" />
+                   <motion.div 
+                     animate={{ width: `${Math.min(100, (systemStats.net / 1000) * 100)}%` }}
+                     className="h-full bg-brand-green shadow-[0_0_10px_#00FF41]" 
+                   />
                 </div>
-             </div>
-             <div className="text-[9px] text-white/20 font-mono leading-tight">
-               SYSTEM_KERNEL: HARDENED_V4.1<br/>
-               IP_ADDR: [REDACTED]<br/>
-               LOC: UNKNOWN
-             </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                   <div className="flex justify-between text-[8px] text-white/30 uppercase tracking-tighter">
+                     <span>Latency</span>
+                     <span className={`font-mono ${systemStats.latency > 100 ? 'text-red-400 animate-pulse' : 'text-brand-cyan'}`}>{systemStats.latency.toFixed(0)}ms</span>
+                   </div>
+                   <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
+                     <motion.div 
+                       animate={{ width: `${Math.min(100, (systemStats.latency / 150) * 100)}%` }}
+                       className={`h-full ${systemStats.latency > 100 ? 'bg-red-400' : 'bg-brand-cyan'}`} 
+                     />
+                   </div>
+                </div>
+                <div className="space-y-1">
+                   <div className="flex justify-between text-[8px] text-white/30 uppercase tracking-tighter">
+                     <span>Loss</span>
+                     <span className={`font-mono ${systemStats.packetLoss > 1 ? 'text-red-400 animate-pulse' : 'text-yellow-500'}`}>{systemStats.packetLoss.toFixed(2)}%</span>
+                   </div>
+                   <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
+                     <motion.div 
+                       animate={{ width: `${Math.min(100, (systemStats.packetLoss / 5) * 100)}%` }}
+                       className={`h-full ${systemStats.packetLoss > 1 ? 'bg-red-400' : 'bg-yellow-500'}`} 
+                     />
+                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-[9px] text-white/20 font-mono leading-tight pt-2">
+              SYSTEM_KERNEL: OMEGA_V13<br/>
+              MESH_STATUS: ENCRYPTED<br/>
+              IP_ADDR: [REDACTED]<br/>
+              LOC: UNKNOWN
+            </div>
           </div>
         </aside>
 
         {/* Center Main Module: Search & Featured */}
         <div className="col-span-6 row-span-4 bento-card flex flex-col p-8 gap-6 relative overflow-hidden">
+          <div className="absolute inset-0 bg-[url('https://api.studio/assets/grid.svg')] opacity-[0.03] pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-green/5 via-transparent to-brand-cyan/5 pointer-events-none" />
           {/* DEEP SCAN OVERLAY */}
           <AnimatePresence>
             {scannerStep > 0 && (
@@ -1539,7 +1733,7 @@ export default function App() {
                    </div>
                 </div>
                 
-                <h2 className="text-2xl font-black text-white tracking-[0.4em] uppercase mb-4">Kernel_Deep_Scan</h2>
+                 <h2 className="text-2xl font-black text-white mb-4 italic tracking-tight">Synchronizing Omega Resonance...</h2>
                 <div className="flex gap-2 mb-10">
                    {[1,2,3,4,5].map(i => (
                      <div key={i} className={`w-16 h-1 rounded-full transition-all duration-700 ${i <= scannerStep ? 'bg-brand-green shadow-[0_0_15px_#00FF41]' : 'bg-white/5'}`} />
@@ -1548,18 +1742,18 @@ export default function App() {
                 
                 <div className="space-y-4 max-w-sm w-full">
                    <div className="flex justify-between text-[10px] font-mono text-brand-green uppercase tracking-widest">
-                      <span>{scanProgress < 100 ? 'ANALYZING_NODES...' : 'SIGNAL_STABILIZED'}</span>
+                      <span>{scanProgress < 100 ? 'Deep Neural Analysis...' : 'Omega Resonance Locked'}</span>
                       <span className="font-black">{Math.floor(scanProgress)}%</span>
                    </div>
                    <div className="h-1 bg-white/5 rounded-full overflow-hidden">
                       <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${scanProgress}%` }}
-                        className="h-full bg-brand-green shadow-[0_0_20px_#00FF41]"
+                         initial={{ width: 0 }}
+                         animate={{ width: `${scanProgress}%` }}
+                         className="h-full bg-brand-green shadow-[0_0_20px_#00FF41]"
                       />
                    </div>
                    <p className="text-[10px] font-mono text-white/40 uppercase mt-6 animate-pulse leading-relaxed">
-                     [KERNEL] Executing recursive signal discovery across global mesh nodes...
+                     [HYPER_RESONANCE] Executing multi-vector extraction across unindexed shadow clusters... Chromium-core isolation ACTIVE.
                    </p>
                 </div>
               </motion.div>
@@ -1567,13 +1761,27 @@ export default function App() {
           </AnimatePresence>
 
           <div className="flex items-center justify-between gap-4">
+            <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shrink-0 relative group">
+              <div className="absolute -top-5 left-0 text-[6px] font-black text-brand-green/30 tracking-[0.3em] uppercase opacity-0 group-hover:opacity-100 transition-opacity">OMEGA_RESONANCE_V13_ACTIVE</div>
+               {(['OSINT_SURFACE', 'NEBULA_DEEP', 'ONION_CRAWLER', 'QUANTUM_MESH'] as const).map((e, idx) => (
+                 <button 
+                   key={e}
+                   onClick={() => setActiveEngine(e)}
+                   title={e === 'ONION_CRAWLER' ? 'Hyper Resonance + Torrent Index' : e === 'QUANTUM_MESH' ? 'Quantum Mesh Discovery (CoCoScraper+Vite)' : e === 'NEBULA_DEEP' ? 'Deep Forensic Extraction' : 'Surface OSINT Discovery'}
+                   className={`px-3 py-2 rounded-lg text-[8px] font-black tracking-widest transition-all ${activeEngine === e ? 'bg-brand-green/20 text-brand-green border border-brand-green/20 shadow-[0_0_10px_rgba(0,255,65,0.1)]' : 'text-white/20 hover:text-white/40'}`}
+                 >
+                   {e === 'ONION_CRAWLER' ? 'LAYER_TORCH' : e === 'QUANTUM_MESH' ? 'LAYER_OMEGA' : `LAYER_${idx}`}
+                 </button>
+               ))}
+            </div>
             <form onSubmit={handleSearch} className="flex-1 relative">
               <input
+                ref={searchInputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="ENTER DISCOVERY PARAMETERS..."
-                className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-6 pr-24 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-green/30 transition-all font-mono tracking-wider placeholder:text-white/10 uppercase"
+                placeholder="Enter discovery parameters..."
+                className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-6 pr-24 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-green/30 transition-all font-mono tracking-wider placeholder:text-white/10"
               />
               <button 
                 type="submit"
@@ -1581,7 +1789,7 @@ export default function App() {
                 className="absolute right-2 top-2 bottom-2 bg-brand-green/20 hover:bg-brand-green/30 text-brand-green px-6 rounded-xl text-[10px] font-black transition-all flex items-center gap-2 border border-brand-green/20"
               >
                 {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                DEEP_SCAN
+                Deep Scan
               </button>
             </form>
             <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
@@ -1604,9 +1812,9 @@ export default function App() {
             <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
               <div className="flex items-center gap-3">
                 {activeTab === 'favorites' ? <Star className="w-5 h-5 text-yellow-500" /> : <Clock className="w-5 h-5 text-brand-green" />}
-                <h3 className="text-sm font-black text-white uppercase tracking-widest">
-                  {activeTab === 'favorites' ? 'Priority Nodes' : 'Signal History'}
-                </h3>
+                  <h3 className="text-sm font-black text-white px-2">
+                    {activeTab === 'favorites' ? 'Priority Nodes' : 'Signal History'}
+                  </h3>
               </div>
               {activeTab === 'history' && history.length > 0 && (
                 <button 
@@ -1632,7 +1840,11 @@ export default function App() {
                    key={cat}
                    onClick={() => {
                      setActiveCategory(cat);
-                     if (cat !== "All") setActiveTab("all"); // Reset tab to avoid conflict
+                     if (cat !== "All") setActiveTab("all");
+                     if (query && !loading) {
+                        // Small timeout to allow state to settle
+                        setTimeout(() => handleSearch(undefined, query), 50);
+                     }
                    }}
                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase border transition-all whitespace-nowrap ${
                      activeCategory === cat
@@ -1656,6 +1868,14 @@ export default function App() {
                     {displayedResults.map((item, idx) => (
                       <motion.div
                         key={item.url + idx}
+                         onMouseEnter={() => {
+                           if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                           hoverTimeoutRef.current = setTimeout(() => setHoveredMedia(item), 800);
+                         }}
+                         onMouseLeave={() => {
+                           if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                           setHoveredMedia(null);
+                         }}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
@@ -1674,7 +1894,19 @@ export default function App() {
                                {item.type === 'rom' && <Gamepad2 className="w-4 h-4 text-orange-400" />}
                             </div>
                             <div className="flex flex-col items-end gap-1">
-                               <span className="text-[10px] font-black text-brand-green">{(item.relevance_score! * 100).toFixed(0)}%</span>
+                               <div className="flex items-center gap-1.5">
+                                  <div className="flex gap-0.5">
+                                    {[1,2,3,4].map(i => (
+                                      <div key={i} className={`w-1 h-3 rounded-full ${i <= (item.relevance_score! * 4) ? 'bg-brand-green shadow-[0_0_5px_#00FF41]' : 'bg-white/10'}`} />
+                                    ))}
+                                  </div>
+                                  <span className="text-[10px] font-black text-brand-green">{(item.relevance_score! * 100).toFixed(0)}%</span>
+                               </div>
+                                {item.engine && (
+                                   <span className="text-[7px] font-black font-mono px-1 rounded-sm bg-brand-cyan/20 text-brand-cyan uppercase tracking-tighter whitespace-nowrap">
+                                      {item.engine.split('_')[0]}
+                                   </span>
+                                )}
                                {item.traffic && (
                                   <span className={`text-[6px] font-mono px-1 rounded ${item.traffic === 'extreme' ? 'bg-red-500/20 text-red-500 animate-pulse' : 'bg-white/5 text-white/40'}`}>
                                      {item.traffic.toUpperCase()}
@@ -1682,7 +1914,7 @@ export default function App() {
                                )}
                             </div>
                          </div>
-                         <h4 className="text-xs font-black text-white leading-tight uppercase group-hover:text-brand-green transition-all line-clamp-1 mb-1 flex items-center gap-2">
+                         <h4 className="text-xs font-black text-white leading-tight group-hover:text-brand-green transition-all line-clamp-1 mb-1 flex items-center gap-2">
                             {item.type === 'radio' && <Radio className="w-3 h-3 text-brand-cyan" />}
                             {item.type === 'video' && <Video className="w-3 h-3 text-brand-cyan" />}
                             {item.type === 'live_cam' && <Monitor className="w-3 h-3 text-brand-green" />}
@@ -1705,6 +1937,17 @@ export default function App() {
                             >
                               <Star className={`w-3 h-3 ${favorites.find(f => f.url === item.url) ? 'fill-current' : ''}`} />
                             </button>
+                            <button 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                playMedia(item); 
+                                setIsVideoFloating(true);
+                              }}
+                              className="p-1 rounded bg-white/5 text-white/20 hover:text-brand-cyan hover:bg-brand-cyan/10 border border-white/5 transition-all ml-1"
+                              title="Detach Player"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </button>
                          </div>
                       </motion.div>
                     ))}
@@ -1717,6 +1960,14 @@ export default function App() {
                       displayedResults.map((item, idx) => (
                         <motion.div
                           key={item.url}
+                          onMouseEnter={() => {
+                            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                            hoverTimeoutRef.current = setTimeout(() => setHoveredMedia(item), 800);
+                          }}
+                          onMouseLeave={() => {
+                            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                            setHoveredMedia(null);
+                          }}
                           initial={{ opacity: 0, y: 15 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.98 }}
@@ -1741,9 +1992,17 @@ export default function App() {
                             {item.health === 'optimal' && (
                               <span className="flex h-1.5 w-1.5 rounded-full bg-brand-green animate-pulse" title="Optimal Signal" />
                             )}
+                            <div className="flex items-center gap-1 bg-black/40 px-1.5 py-0.5 rounded border border-white/5">
+                                <div className="flex gap-0.5">
+                                  {[1,2,3,4,5].map(i => (
+                                    <div key={i} className={`w-1 h-2 rounded-full ${i <= (item.relevance_score! * 5) ? 'bg-brand-green shadow-[0_0_3px_#00FF41]' : 'bg-white/5'}`} />
+                                  ))}
+                                </div>
+                                <span className="text-[8px] font-black text-brand-green">{(item.relevance_score! * 100).toFixed(0)}%</span>
+                            </div>
                             {item.relevance_score !== undefined && (
                               <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter text-brand-cyan bg-brand-cyan/10 border border-brand-cyan/20">
-                                REL: {(item.relevance_score * 100).toFixed(0)}%
+                                REL DISCOVERY
                               </span>
                             )}
                             {item.rating !== undefined && (
@@ -1758,6 +2017,11 @@ export default function App() {
                                 'text-white/20 bg-white/5 border-white/10'
                               }`}>
                                 {item.engagement}
+                              </span>
+                            )}
+                            {item.engine && (
+                              <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter text-brand-green bg-brand-green/10 border border-brand-green/20">
+                                SCRAPER: {item.engine.split('_')[0]}
                               </span>
                             )}
                             {item.traffic && (
@@ -1790,10 +2054,11 @@ export default function App() {
                             {item.type === 'media' && <Zap className="w-3 h-3 text-yellow-500" />}
                             {item.type === 'image' && <ImageIcon className="w-3 h-3 text-purple-400" />}
                             {item.type === 'document' && <FileText className="w-3 h-3 text-blue-400" />}
+                            {item.type === 'book' && <Book className="w-3 h-3 text-orange-400" />}
                             {item.type === 'rom' && <Gamepad2 className="w-3 h-3 text-orange-400" />}
                             {item.name}
                          </h4>
-                         <p className="text-[10px] text-white/40 truncate mt-0.5">{item.description}</p>
+                         <p className="text-[10px] text-white/40 mt-0.5 line-clamp-1">{item.description}</p>
                       </div>
                       
                       <div className="flex items-center gap-2">
@@ -1816,6 +2081,12 @@ export default function App() {
                         >
                           <SubtitlesIcon className="w-3.5 h-3.5" />
                         </button>
+                        <div className="p-2 rounded-xl bg-white/5 text-white/20 group-hover:text-brand-cyan hover:bg-brand-cyan/10 transition-all cursor-pointer" 
+                             onClick={(e) => { e.stopPropagation(); playMedia(item); setIsVideoFloating(true); }}
+                             title="Detach Player"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </div>
                         <div className="p-2 rounded-xl bg-white/5 text-white/20 group-hover:text-brand-green group-hover:bg-brand-green/10 transition-all cursor-pointer" onClick={() => playMedia(item)}>
                           <Play className="w-3.5 h-3.5" />
                         </div>
@@ -1898,7 +2169,7 @@ export default function App() {
            <div className="flex-1 bento-card p-6 flex flex-col">
               <h3 className="text-xs font-mono text-brand-green mb-4 tracking-widest uppercase opacity-80">Feed Matrix</h3>
               <div className="flex-1 grid grid-cols-1 gap-4">
-                 {(currentMedia?.type === 'video' || currentMedia?.type === 'live_cam' || currentMedia?.type === 'media' || currentMedia?.type === 'webcam' || currentMedia?.type === 'stream' || currentMedia?.type === 'image' || currentMedia?.type === 'document' || currentMedia?.type === 'rom' || currentMedia?.type === 'book') ? (
+                 {(currentMedia?.type === 'radio' || currentMedia?.type === 'video' || currentMedia?.type === 'live_cam' || currentMedia?.type === 'media' || currentMedia?.type === 'webcam' || currentMedia?.type === 'stream' || currentMedia?.type === 'image' || currentMedia?.type === 'document' || currentMedia?.type === 'rom' || currentMedia?.type === 'book') ? (
                     <>
                     {isVideoFloating && !isVideoMinimized && (
                         <div className="bg-black/40 rounded-2xl border border-dashed border-white/20 relative flex items-center justify-center flex-1 opacity-30">
@@ -1920,7 +2191,23 @@ export default function App() {
                         }
                         className={`${isVideoFloating ? "shadow-2xl border border-brand-green/30 cursor-move backdrop-blur-xl" : "flex-1 border border-brand-green/20"} bg-black rounded-2xl relative overflow-hidden flex items-center justify-center group`}
                     >
-                      {currentMedia?.type === 'image' ? (
+                      {currentMedia?.type === 'radio' ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-brand-green/10 to-black p-6 relative">
+                           <div className="w-32 h-32 rounded-full border-2 border-brand-green/20 flex items-center justify-center relative">
+                              <Radio className="w-12 h-12 text-brand-green animate-pulse" />
+                              <div className="absolute inset-0 border border-brand-green/10 rounded-full animate-[ping_3s_linear_infinite]" />
+                              <div className="absolute inset-0 border border-brand-cyan/5 rounded-full animate-[ping_5s_linear_infinite]" />
+                              <div className="absolute inset-0 bg-brand-green/5 rounded-full animate-pulse opacity-20" />
+                           </div>
+                           <div className="mt-6 text-center z-10">
+                              <h4 className="text-sm font-black text-white mb-1">{currentMedia.name}</h4>
+                              <p className="text-[10px] text-brand-green font-mono uppercase opacity-60">Audio Signal Synchronized</p>
+                           </div>
+                           <div className="absolute bottom-0 left-0 right-0 h-1/2 opacity-30 pointer-events-none">
+                              <canvas ref={canvasRef} width="400" height="150" className="w-full h-full" />
+                           </div>
+                        </div>
+                      ) : currentMedia?.type === 'image' ? (
                         <img src={currentMedia.url} className="w-full h-full object-contain bg-black" alt={currentMedia.name} crossOrigin="anonymous" />
                       ) : currentMedia?.type === 'document' || currentMedia?.type === 'rom' || currentMedia?.type === 'book' ? (
                         <iframe src={currentMedia.url} className="w-full h-full bg-white relative z-[1]" title={currentMedia.name} />
@@ -1932,7 +2219,14 @@ export default function App() {
                           allowFullScreen
                         />
                       ) : (
-                        <video ref={videoRef} className={`w-full h-full object-cover transition-opacity duration-700 ${isReconnecting ? 'opacity-20' : 'opacity-100'}`} controls={false} muted={false} crossOrigin="anonymous" />
+                        <video 
+                          ref={videoRef} 
+                          onEnded={() => setIsPlaying(false)}
+                          className={`w-full h-full object-cover transition-opacity duration-700 ${isReconnecting ? 'opacity-20' : 'opacity-100'}`} 
+                          controls={false} 
+                          muted={false} 
+                          crossOrigin="anonymous" 
+                        />
                       )}
                       
                        {isSubtitleEnabled && (subtitles || isGeneratingSubtitles) && (
@@ -1948,6 +2242,28 @@ export default function App() {
                         </span>
                       </div>
                       <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Technical Metadata Overlay */}
+                        <div className="flex items-center gap-3 mr-4 bg-black/80 px-3 py-1.5 rounded-lg border border-white/5 backdrop-blur-md">
+                          {streamInfo.resolution && (
+                            <div className="flex flex-col items-center">
+                              <span className="text-[6px] font-mono text-white/40 uppercase">Res</span>
+                              <span className="text-[8px] font-black text-brand-green">{streamInfo.resolution}</span>
+                            </div>
+                          )}
+                          {streamInfo.bitrate && (
+                            <div className="flex flex-col items-center border-l border-white/10 pl-3">
+                              <span className="text-[6px] font-mono text-white/40 uppercase">Bitrate</span>
+                              <span className="text-[8px] font-black text-brand-cyan">{streamInfo.bitrate}</span>
+                            </div>
+                          )}
+                          {streamInfo.buffer !== undefined && (
+                            <div className="flex flex-col items-center border-l border-white/10 pl-3">
+                              <span className="text-[6px] font-mono text-white/40 uppercase">Buffer</span>
+                              <span className="text-[8px] font-black text-yellow-500">{streamInfo.buffer}s</span>
+                            </div>
+                          )}
+                        </div>
+
                          {isVideoFloating && (
                            <button onClick={() => setIsVideoMinimized(true)} className="bg-black/60 p-1.5 rounded hover:bg-white/10 transition-colors border border-white/10" title="Minimize to tray">
                              <Command className="w-3.5 h-3.5 text-white/70 hover:text-white" />
@@ -2003,29 +2319,64 @@ export default function App() {
                               </button>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4 text-xs font-mono mb-6 text-white/70">
+                            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-xs font-mono mb-8 text-white/70">
                               <div className="flex flex-col">
-                                <span className="text-white/40 mb-1">Type</span>
-                                <span className="uppercase text-brand-green">{currentMedia.type}</span>
+                                <span className="text-white/40 mb-1">TYPE_IDENTIFIER</span>
+                                <span className="uppercase text-brand-green font-black">{currentMedia.type}</span>
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-white/40 mb-1">Category</span>
+                                <span className="text-white/40 mb-1">SCAPER_ENGINE</span>
+                                <span className="uppercase text-brand-cyan">{currentMedia.engine || "CORE_V3"}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-white/40 mb-1">PRODUCER_STUDIO</span>
+                                <span className="uppercase">{currentMedia.studio || "UNKNOWN_SOURCE"}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-white/40 mb-1">SIGNAL_YEAR</span>
+                                <span>{currentMedia.year || "N/A"}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-white/40 mb-1">MAX_QUALITY</span>
+                                <span className="uppercase text-yellow-500">{currentMedia.quality || "AUTO_ADAPT"}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-white/40 mb-1">CATEGORY</span>
                                 <span className="uppercase">{currentMedia.category}</span>
                               </div>
-                              <div className="flex flex-col">
-                                <span className="text-white/40 mb-1">Source Node</span>
-                                <span className="truncate">{currentMedia.url.substring(0, 40)}...</span>
+                              <div className="flex flex-col border-t border-white/5 pt-4">
+                                <span className="text-white/40 mb-1">ACTIVE_RESOLUTION</span>
+                                <span className="text-brand-green">{streamInfo.resolution || "CALCULATING..."}</span>
                               </div>
-                              <div className="flex flex-col">
-                                <span className="text-white/40 mb-1">Date Encoded</span>
-                                <span>{currentMedia.dateAdded}</span>
+                              <div className="flex flex-col border-t border-white/5 pt-4">
+                                <span className="text-white/40 mb-1">REALTIME_BITRATE</span>
+                                <span className="text-brand-cyan">{streamInfo.bitrate || "PENDING..."}</span>
                               </div>
-                              {streamQuality && (
-                                <div className="flex flex-col">
-                                  <span className="text-white/40 mb-1">Max Validated Bandwidth Qual.</span>
-                                  <span className="uppercase">{streamQuality}</span>
-                                </div>
-                              )}
+                              <div className="flex flex-col border-t border-white/5 pt-4">
+                                <span className="text-white/40 mb-1">SIGNAL_CODEC</span>
+                                <span>{streamInfo.codec || "DETECTING..."}</span>
+                              </div>
+                              <div className="flex flex-col border-t border-white/5 pt-4">
+                                <span className="text-white/40 mb-1">JITTER_BUFFER</span>
+                                <span className="text-yellow-500">{streamInfo.buffer ? `${streamInfo.buffer}s` : "STABILIZING..."}</span>
+                              </div>
+                              <div className="flex flex-col col-span-2 border-t border-white/5 pt-4">
+                                <span className="text-white/40 mb-1">SOURCE_NODE_HASH</span>
+                                <span className="truncate break-all opacity-60 text-[10px]">{currentMedia.url}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="mb-8">
+                                <h4 className="text-[10px] font-black text-white/40 uppercase mb-2 tracking-[0.2em]">Plot Summary / Briefing</h4>
+                                <p className="text-sm leading-relaxed text-white/80">{currentMedia.description}</p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 mb-8">
+                                {currentMedia.tags.map(tag => (
+                                    <span key={tag} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/40 hover:text-white/80 hover:border-white/30 transition-colors uppercase tracking-widest cursor-default">
+                                        {tag}
+                                    </span>
+                                ))}
                             </div>
                             
                             {currentMedia.tags && currentMedia.tags.length > 0 && (
@@ -2050,15 +2401,56 @@ export default function App() {
                     </motion.div>
                     </>
                  ) : (
-                   [1, 2, 3].map(i => (
-                     <div key={i} className="bg-black/60 rounded-2xl border border-white/5 relative overflow-hidden flex items-center justify-center group flex-1">
-                       <div className="absolute top-3 left-3 flex items-center gap-2">
-                         <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
-                         <span className="text-[8px] font-mono opacity-50">CAM_NODE_0{i}</span>
-                       </div>
-                       <Monitor className="w-8 h-8 text-white/5 group-hover:text-brand-green/20 transition-colors" />
-                     </div>
-                   ))
+                   <div className="flex-1 bg-black/40 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col items-center justify-center p-8 group">
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,255,65,0.08),transparent)] animate-pulse" />
+                      <div className="relative z-10 flex flex-col items-center gap-8">
+                         <div className="relative w-32 h-32">
+                            <motion.div 
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                              className="absolute inset-0 border-[3px] border-dashed border-brand-green/30 rounded-full"
+                            />
+                            <motion.div 
+                              animate={{ rotate: -360 }}
+                              transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                              className="absolute inset-4 border-2 border-dashed border-brand-cyan/20 rounded-full"
+                            />
+                            <motion.div 
+                              animate={{ scale: [1, 1.1, 1] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                              className="absolute inset-8 border border-brand-green/40 rounded-full bg-brand-green/5"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                               <Shield className="w-12 h-12 text-brand-green group-hover:scale-110 transition-transform duration-500" />
+                            </div>
+                         </div>
+                         <div className="flex flex-col items-center gap-3">
+                            <h4 className="text-[12px] font-black text-white/60 uppercase tracking-[0.5em]">Omega_Core_Active_V13</h4>
+                            <div className="flex gap-2">
+                               {[1,2,3,4,5,6,7,8,9].map(i => (
+                                 <motion.div 
+                                   key={i}
+                                   animate={{ height: [4, 20, 4] }}
+                                   transition={{ duration: 0.6, delay: i * 0.05, repeat: Infinity }}
+                                   className="w-1 bg-brand-green/40 rounded-full"
+                                 />
+                               ))}
+                            </div>
+                         </div>
+                         <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest text-center max-w-[300px] leading-relaxed">
+                            Omega resonance patterns locked. Quantum-safe encryption initialized. OMEGA_PROTOCOLS synchronized.
+                         </p>
+                      </div>
+                      <div className="absolute bottom-6 left-6 right-6 flex justify-between items-center">
+                         <div className="flex items-center gap-3">
+                            <div className="w-2.5 h-2.5 rounded-full bg-brand-green shadow-[0_0_15px_#00FF41] animate-pulse" />
+                            <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Resonance_V13_Omega</span>
+                         </div>
+                         <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded bg-brand-cyan/10 text-brand-cyan text-[8px] font-black uppercase tracking-tighter">AES_P2P_ACTIVE</span>
+                         </div>
+                      </div>
+                   </div>
                  )}
               </div>
            </div>
@@ -2396,6 +2788,98 @@ export default function App() {
         </div>
       </footer>
 
+      {/* Hover Preview Overlay */}
+      <AnimatePresence>
+        {hoveredMedia && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            onMouseEnter={() => {
+              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+            }}
+            onMouseLeave={() => setHoveredMedia(null)}
+            className="fixed bottom-24 right-8 z-[100] w-80 bg-black/95 border border-brand-green/40 rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden"
+          >
+            <div className="h-44 bg-brand-green/5 relative flex items-center justify-center overflow-hidden group/prev">
+                <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent z-10" />
+                {hoveredMedia.type === 'video' || hoveredMedia.type === 'stream' ? (
+                  <Video className="w-12 h-12 text-brand-green/20 animate-pulse" />
+                ) : hoveredMedia.type === 'radio' ? (
+                  <Radio className="w-12 h-12 text-brand-cyan/20 animate-pulse" />
+                ) : (
+                  <Activity className="w-12 h-12 text-white/10" />
+                )}
+                
+                <div className="absolute top-3 left-3 z-20 flex gap-1">
+                   <div className="px-2 py-0.5 bg-brand-green text-black text-[8px] font-black rounded uppercase tracking-widest flex items-center gap-1.5">
+                     <ShieldCheck className="w-2.5 h-2.5" />
+                     V13_SECURE_SCAN
+                   </div>
+                </div>
+
+                <div className="absolute inset-0 flex items-center justify-center z-20 opacity-0 group-hover/prev:opacity-100 transition-opacity">
+                   <button 
+                     onClick={() => {
+                       playMedia(hoveredMedia);
+                       setIsVideoFloating(true);
+                       setHoveredMedia(null);
+                     }}
+                     className="bg-brand-green text-black px-4 py-2 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform"
+                   >
+                     <ExternalLink className="w-3.5 h-3.5" />
+                     Detach & Play
+                   </button>
+                </div>
+            </div>
+            <div className="p-5 relative z-20">
+               <h4 className="text-sm font-black text-white uppercase tracking-tighter mb-1 truncate">
+                 {hoveredMedia.name}
+               </h4>
+               <p className="text-[10px] text-white/50 line-clamp-2 mb-4 leading-relaxed font-mono">
+                 {hoveredMedia.description}
+               </p>
+               <div className="flex items-center justify-between mb-4">
+                  <div className="flex gap-2">
+                     <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-white/5 text-brand-green uppercase border border-brand-green/20">
+                       {hoveredMedia.type}
+                     </span>
+                     <span className="text-[8px] font-mono text-white/40 bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
+                       {hoveredMedia.quality || "720P"}
+                     </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                     <span className="text-[7px] font-mono text-white/30 uppercase mr-1">Trust_Net:</span>
+                     <div className="flex gap-0.5">
+                        {[1,2,3,4,5].map(i => (
+                           <div key={i} className={`w-2 h-1 rounded-full ${i <= (hoveredMedia.relevance_score || 0.8) * 5 ? 'bg-brand-green shadow-[0_0_5px_#00FF41]' : 'bg-white/10'}`} />
+                        ))}
+                     </div>
+                  </div>
+               </div>
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                     <div className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse shadow-[0_0_8px_#00FF41]" />
+                     <span className="text-[8px] font-mono text-brand-green uppercase tracking-widest">Node_Verified</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                     <Shield className="w-2.5 h-2.5 text-white/20" />
+                     <span className="text-[8px] font-mono text-white/20 uppercase tracking-widest">E2EE_Active</span>
+                  </div>
+               </div>
+            </div>
+            <div className="h-1 bg-white/5">
+               <motion.div 
+                 initial={{ width: 0 }}
+                 animate={{ width: "100%" }}
+                 transition={{ duration: 1.2 }}
+                 className="h-full bg-brand-green shadow-[0_0_10px_#00FF41]"
+               />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Download Manager Overlay */}
       <AnimatePresence>
         {showDownloads && (
@@ -2552,6 +3036,88 @@ export default function App() {
               </motion.div>
            </motion.div>
          )}
+      </AnimatePresence>
+
+      {/* Kernel Boot Overlay */}
+      <AnimatePresence>
+        {isKernelBooting && (
+          <motion.div 
+            exit={{ opacity: 0, scale: 1.1 }}
+            transition={{ duration: 1 }}
+            className="fixed inset-0 z-[1000] bg-black flex items-center justify-center overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-[url('https://api.studio/assets/grid.svg')] opacity-[0.05] pointer-events-none" />
+            <div className="flex flex-col items-center gap-8 relative">
+               <motion.div 
+                 animate={{ 
+                   scale: [1, 1.05, 1],
+                   opacity: [0.8, 1, 0.8]
+                 }}
+                 transition={{ duration: 2, repeat: Infinity }}
+                 className="w-24 h-24 bg-brand-green rounded-3xl flex items-center justify-center shadow-[0_0_50px_#00FF41]"
+               >
+                 <Cpu className="w-12 h-12 text-black" />
+               </motion.div>
+               <div className="flex flex-col items-center gap-2">
+                  <h2 className="text-2xl font-black text-white tracking-[0.6em] uppercase">Nebula_V13</h2>
+                  <div className="flex items-center gap-2">
+                     <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse" />
+                     <span className="text-[10px] font-mono text-brand-green uppercase tracking-widest">Initializing Neural Omega Scraper Kernel...</span>
+                  </div>
+               </div>
+               <div className="w-64 h-1 bg-white/10 rounded-full overflow-hidden mt-4">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: 3, ease: "easeInOut" }}
+                    className="h-full bg-brand-green shadow-[0_0_15px_#00FF41]"
+                  />
+               </div>
+               <div className="flex gap-4 mt-2">
+                  <span className="text-[7px] font-mono text-white/20 uppercase">Core_Check: OK</span>
+                  <span className="text-[7px] font-mono text-white/20 uppercase">Signal_Gate: OK</span>
+                  <span className="text-[7px] font-mono text-white/20 uppercase">Neural_Link: OK</span>
+               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mini Status Tray (Minimized Global Player) */}
+      <AnimatePresence>
+        {isVideoMinimized && currentMedia && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-black/90 border border-brand-green/30 rounded-2xl px-6 py-3 shadow-2xl backdrop-blur-2xl flex items-center gap-6"
+          >
+             <div className="flex items-center gap-4 border-r border-white/10 pr-6">
+                <div className="w-8 h-8 rounded-lg bg-brand-green/10 flex items-center justify-center">
+                   {currentMedia.type === 'radio' ? <Radio className="w-4 h-4 text-brand-green animate-pulse" /> : <Video className="w-4 h-4 text-brand-cyan animate-pulse" />}
+                </div>
+                <div className="flex flex-col">
+                   <span className="text-[10px] font-black text-white truncate w-32">{currentMedia.name}</span>
+                   <span className="text-[8px] font-mono text-brand-green/60 uppercase">Node_Connected</span>
+                </div>
+             </div>
+             <div className="flex items-center gap-2">
+                <button onClick={handlePlay} disabled={isPlaying} className="p-2 text-white/40 hover:text-brand-green transition-colors disabled:opacity-20">
+                   <Play className="w-4 h-4 fill-current" />
+                </button>
+                <button onClick={handlePause} disabled={!isPlaying} className="p-2 text-white/40 hover:text-white transition-colors disabled:opacity-20">
+                   <Pause className="w-4 h-4 fill-current" />
+                </button>
+                <div className="w-[1px] h-4 bg-white/10 mx-2" />
+                <button onClick={() => setIsVideoMinimized(false)} className="p-2 text-white/40 hover:text-brand-cyan transition-colors">
+                   <Maximize className="w-4 h-4" />
+                </button>
+                <button onClick={() => { handleStop(); setIsVideoMinimized(false); }} className="p-2 text-white/40 hover:hover:text-red-500 transition-colors">
+                   <Power className="w-4 h-4" />
+                </button>
+             </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Hidden Audio */}
