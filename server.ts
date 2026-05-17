@@ -27,112 +27,48 @@ async function startServer() {
 
       console.log(`[\x1b[36mDISCOVERY\x1b[0m] Initiating robust search: "${query}" | Type: ${activeType} | Engine: ${activeEngine}`);
 
-      // Tiered discovery: OSINT (Fast) -> AI Engine (Verified)
+      // Tiered discovery: AI Engine (Real-time Discovery) + Real Scrapers
       const osIntSignals: any[] = [];
       
-      // Removed Content Safety Filter locally to support unrestricted media search
-
       try {
-        if (activeType === 'all' || activeType === 'radio') {
-          // If searching for 'all', reduce radio dominance to give space for video/nodes
-          const radioLimit = activeType === 'all' ? 3 : 15;
-          const radioRes = await fetch(`https://de1.api.radio-browser.info/json/stations/byname/${encodeURIComponent(query)}?limit=${radioLimit}`);
-          if (radioRes.ok) {
-            const radioData = await radioRes.json() as any[];
-            radioData.forEach(station => {
-              osIntSignals.push({
-                id: `rb-${station.stationuuid}`,
-                name: station.name,
-                url: station.url_resolved || station.url,
-                type: 'radio',
-                category: station.tags ? station.tags.split(',')[0] : 'Public',
-                description: `${station.tags || 'Radio Station'} | ${station.country || 'Global'}`,
-                tags: (station.tags || "").split(",").slice(0, 3),
-                relevance_score: 0.7, // Lower priority for basic radio in 'all' search
-                rating: 3.5,
-                engine: 'OS_INT_RADIO'
-              });
+        // Radio Browser Scraper
+        const radioRes = await fetch(`https://de1.api.radio-browser.info/json/stations/search?name=${encodeURIComponent(query)}&limit=10`);
+        if (radioRes.ok) {
+          const radioData = await radioRes.json() as any[];
+          radioData.forEach(station => {
+            osIntSignals.push({
+              id: `radio-${station.stationuuid}`,
+              name: station.name,
+              url: station.url_resolved || station.url,
+              type: 'radio',
+              category: station.tags ? station.tags.split(',')[0] : 'Radio',
+              description: station.country || 'Global',
+              engine: 'RADIO_BROWSER_API',
+              relevance_score: 0.8
             });
-          }
+          });
         }
-        
-        // External Video & Webcam OSINT (YouTube, EarthCam, SkylineWebcams mappings based on query)
-        if (activeType === 'all' || activeType === 'video' || activeType === 'live_cam') {
-           const lQuery = query.toLowerCase();
-           
-           // Universal Cinema/TV Fallback (Simulated CoCoScraper/Torrentio results)
-           if (activeType === 'video' || activeType === 'all') {
-             osIntSignals.push({
-               id: 'os-cinema-1',
-               name: `${query.charAt(0).toUpperCase() + query.slice(1)} - 2160p OMEGA [CoCoScan]`,
-               url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-               type: 'video',
-               category: 'Cinema_4K',
-               description: `Authenticated high-fidelity mirror. Resolved via CoCoScraper logic. [Source: Ultra_HD]`,
-               tags: ['2160p', 'hdr', 'verified'],
-               relevance_score: 0.99,
-               health: 'optimal',
-               engine: 'V13_OMEGA_RESONANCE'
-             });
-             osIntSignals.push({
-               id: 'os-torrentio-1',
-               name: `[MAGNET] ${query.toUpperCase()}_HYPER_RESONANCE_V13`,
-               url: `magnet:?xt=urn:btih:${Math.random().toString(36).substring(2,12)}&dn=${encodeURIComponent(query)}&tr=udp://tracker.coppersurfer.tk:6969/announce`,
-               type: 'video',
-               category: 'Torrent_P2P',
-               description: 'Multipath magnet resolved via Torrentio_Omega. Distributed seeding active.',
-               tags: ['magnet', 'p2p', 'OMEGA-fidelity'],
-               relevance_score: 0.96,
-               health: 'optimal',
-               engine: 'TORRENTIO_CORE'
-             });
-           }
 
-           if (lQuery.includes("cam") || lQuery.includes("live") || lQuery.includes("beach") || lQuery.includes("city") || activeType === 'live_cam') {
-             osIntSignals.push({
-               id: 'os-earthcam',
-               name: 'EarthCam - Times Square Live',
-               url: 'https://www.youtube.com/watch?v=1-iS7LArMPA',
-               type: 'live_cam',
-               category: 'Public',
-               description: 'Panoramic view of Times Square, New York City.',
-               tags: ['nyc', 'live', 'cam'],
-               relevance_score: 0.9,
-               health: 'optimal',
-               engine: 'OS_INT'
-             });
-           }
-           if (lQuery.includes("news") || lQuery.includes("noticia")) {
-             osIntSignals.push({
-               id: 'os-news',
-               name: 'Al Jazeera English Live',
-               url: 'https://www.youtube.com/watch?v=gCNeDWCI0vo',
-               type: 'video',
-               category: 'Public',
-               description: 'Global news network broadcasting live from Qatar.',
-               tags: ['news', 'live', 'world'],
-               relevance_score: 0.95,
-               health: 'optimal',
-               engine: 'OS_INT'
-             });
-           }
-           if (lQuery.includes("music") || lQuery.includes("musica") || lQuery.includes("lofi")) {
-             osIntSignals.push({
-               id: 'os-music-vid',
-               name: 'Lofi Girl - lofi hip hop radio',
-               url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
-               type: 'video',
-               category: 'Entertainment',
-               description: 'Beats to relax/study to.',
-               tags: ['lofi', 'music', 'study'],
-               relevance_score: 0.99,
-               health: 'optimal',
-               engine: 'OS_INT'
-             });
-           }
+        // Archive.org Scraper
+        const archiveRes = await fetch(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&output=json&rows=10`);
+        if (archiveRes.ok) {
+           const archiveData = await archiveRes.json();
+           const docs = archiveData.response?.docs || [];
+           docs.forEach((doc: any) => {
+              osIntSignals.push({
+                 id: `arch-${doc.identifier}`,
+                 name: doc.title || doc.identifier,
+                 url: `https://archive.org/details/${doc.identifier}`,
+                 type: doc.mediatype === 'audio' ? 'radio' : doc.mediatype === 'movies' ? 'video' : 'document',
+                 category: doc.collection ? (Array.isArray(doc.collection) ? doc.collection[0] : doc.collection) : 'Archive',
+                 description: doc.description ? doc.description.substring(0, 100) : 'Archive.org resource',
+                 engine: 'ARCHIVE_DOT_ORG_API',
+                 relevance_score: 0.85
+              });
+           });
         }
-      } catch (apiErr) {
-        console.warn("[OS_INT] Engine offline.");
+      } catch (err) {
+        console.error("[SCRAPERS] Discovery failed.", err);
       }
 
       // AI ENGINE: NEBULA_V13_OMEGA_SCRAPER (Forensic quantum-mesh discovery)
@@ -141,62 +77,49 @@ async function startServer() {
         const typeConstraint = activeType === 'radio' 
           ? "Target: OMEGA-fidelity audio nodes. Exfiltrate direct manifest vectors (.mp3, .aac, .m3u8, .pls). Deep-scan lossless edge clusters and shadow broadcast relays." 
           : activeType === 'video' 
-            ? "Target: Universal Cinema Discovery. Search for direct spectral .m3u8, .mp4, or distributed media nodes. Simulate patterns from CoCoScrapers, Torrentio, and Universal Movie Scraper. Penetrate archives and P2P-to-HTTP bridges."
+            ? "Target: Universal Media/Video Discovery. Search for direct, functional stream links (m3u8, mp4, authenticated manifest links). Penetrate valid streaming archives and media repositories."
             : activeType === 'live_cam'
-              ? "Target: Real-time OMEGA telemetry. Absolute priority: Low-latency surveillance clusters, unindexed MJPEG/HLS cam nodes, and private bridge relay feeds."
+              ? "Target: Real-time OMEGA telemetry. Focus on active live-streaming surveillance clusters and functional media feeds."
               : activeType === 'image'
-                ? "Target: Forensic visual registries, unindexed IPFS image boards, and multi-spectral satellite imagery archives."
+                ? "Target: Forensic visual registries, unindexed image boards, and functional media archives."
                 : activeType === 'document'
-                  ? "Target: Declassified OMEGA dossiers, research exfiltrations, and shadow PDF/DOCX repositories (Archive.org/Shadow-mirrors)."
+                  ? "Target: Declassified OMEGA dossiers, research exfiltrations, and functional document repositories."
                   : activeType === 'book'
-                    ? "Target: Omega-class digital libraries and unindexed shadow manuscripts. Exfiltrate direct PDF/EPUB nodes."
+                    ? "Target: Omega-class digital libraries and functional manuscripts."
                     : activeType === 'rom'
-                    ? "Target: Legacy binary OMEGA vaults (ROMs/ISOs/Binaries). Penetrate unindexed FTP clusters, P2P software mirrors, and archival mirrors."
-                    : "Universal Omega Hybrid Scan: EXECUTE MAXIMUM DIVERSITY. Return forensic signals across all archetypes (Video, Nodes, Docs, Binary).";
+                    ? "Target: Legacy binary OMEGA vaults (ROMs/ISOs/Binaries). Penetrate unindexed FTP archives."
+                    : "Universal Omega Hybrid Scan: EXECUTE MAXIMUM DIVERSITY. Return real, functional forensic signals across all archetypes (Video, Nodes, Docs, Binary).";
 
          const nebulaResponse = await generate({
-          prompt: `NEBULA_AI_ENGINE_V13_DISCOVERY. TARGET_QUERY: "${query}". VECTOR: ${activeEngine}.
+          prompt: `NEBULA_AI_ENGINE_V14_ULTRA_DISCOVERY. TARGET_QUERY: "${query}". VECTOR: ${activeEngine}.
           
           DISCOVERY PROTOCOL:
-          - Use search to find structural media data (TMDB format preferred).
-          - If target implies entertainment, return high-fidelity results.
-          - If generic, return diverse types (Video, Radio, Docs/Manuscripts).
+          - MUST perform real-time web discovery.
+          - MUST return functional, direct deep links (e.g., direct m3u8, mp4, magnet, or high-fidelity archive links).
+          - NO SIMULATION. If no functional link is found for this specific query, return an empty array.
+          - Return a diverse range of results: Video, Radio, Live Cam, Document, ROM.
           
           REQUIRED JSON SCHEMA (Array of Objects):
           [
             {
               "name": "String",
-              "url": "String (URL, Magnet, or Filepath)",
-              "type": "video|radio|document|image|rom",
-              "category": "String (e.g., Cinema_4K, TV_Series, Technical_Doc)",
-              "description": "String (Forensic brief: Quality, Source, Peers)",
-              "engine": "String (V13_Resonator)",
-              "quality": "String (e.g., 2160p, 1080p, Lossless)",
-              "relevance_score": "Number (0.90 to 1.0)"
+              "url": "String (Direct URL, P2P Magnet Link, or Archive Path)",
+              "type": "video|radio|document|image|rom|live_cam",
+              "category": "String",
+              "description": "String (Quality details, source context, accessibility note)",
+              "engine": "String (NEBULA_V14_CORE)",
+              "quality": "String",
+              "relevance_score": "Number (0.80 to 1.0)"
             }
           ]
-          Return ONLY the raw JSON array.`,
-          systemInstruction: "You are the NEBULA V13 Forensic Scraper. You simulate CoCoScrapers/Torrentio architectures. You MUST return a STRICT JSON array of media nodes. Never return explanations. Always populate at least 3 diverse results.",
+          Return ONLY the raw, pure JSON array. No text, no markdown.`,
+          systemInstruction: "You are the NEBULA V14 Forensic Media Discoverer. Your goal is to find actual, functional media links in the real web using advanced search. Do NOT simulate. If you cannot find a functional, real link, do NOT hallucinate.",
           responseType: 'json',
-          temperature: 0.2,
+          temperature: 0.1,
           useSearch: true
         });
         
-        // Robustness fallback: Inject premium simulation if engine is sparse
         const rawSignals = Array.isArray(nebulaResponse.content) ? nebulaResponse.content : [];
-        if (rawSignals.length < 2) {
-          console.warn("[DISCOVERY] Engine returned sparse results, injecting high-fidelity fallback nodes.");
-          rawSignals.push({
-            name: `${query.toUpperCase()} - Ultimate 4K Remaster`,
-            url: `magnet:?xt=urn:btih:fallback_link_v13&dn=${encodeURIComponent(query)}`,
-            type: 'video',
-            category: 'Cinema_4K',
-            description: 'Direct link resolved from high-trust P2P DHT nodes. [Seeds: 500+]',
-            engine: 'COCO_V13_RES',
-            quality: '2160p',
-            relevance_score: 0.99
-          });
-        }
 
         nebulaSignals = rawSignals.map(s => ({
           ...s,
@@ -208,7 +131,7 @@ async function startServer() {
           lng: (Math.random() * 360) - 180
         }));
       } catch (aiError) {
-        console.error("[AI_ENGINE] Discovery failed, applying fallback.", aiError);
+        console.error("[AI_ENGINE] Discovery failed.", aiError);
       }
 
       // Merge results

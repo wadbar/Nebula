@@ -70,138 +70,11 @@ import { APIProvider, Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-goo
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
 
-interface NodeLocation {
-  lat: number;
-  lng: number;
-  id: string;
-  status: 'active' | 'latency';
-}
-
-interface DownloadTask {
-  id: string;
-  media: MediaResult;
-  progress: number;
-  status: 'queued' | 'downloading' | 'paused' | 'completed' | 'error' | 'canceled';
-  loaded: number;
-  total: number;
-  error?: string;
-  timestamp: number;
-}
-
-interface MediaResult {
-  name: string;
-  url: string;
-  type: "radio" | "video" | "live_cam" | "media" | "image" | "document" | "rom" | "book";
-  category?: string;
-  description: string;
-  tags: string[];
-  health?: 'optimal' | 'degraded' | 'unknown' | 'broken';
-  relevance_score?: number;
-  rating?: number;
-  engagement?: "low" | "medium" | "high";
-  traffic?: 'minimal' | 'low' | 'medium' | 'high' | 'heavy' | 'extreme';
-  threat?: 'none' | 'minimal' | 'low' | 'guarded' | 'high' | 'critical';
-  chain_verified?: boolean;
-  registry_hash?: string;
-  last_block?: number;
-  lat?: number;
-  lng?: number;
-  studio?: string;
-  year?: string;
-  quality?: string;
-  engine?: string;
-  mirrors?: string[];
-  latency?: number;
-}
-
-interface ValidationResult {
-  valid: boolean;
-  integrity_score: number;
-  consensus_nodes: number;
-  nodes: NodeLocation[];
-  signature: string;
-  block_timestamp: string;
-}
-
+import { NodeLocation, DownloadTask, MediaResult, ValidationResult, LogEntry, Playlist } from './types';
 const DARK_MAP_ID = "dark_mesh_v1";
 
-const NetworkMap = ({ nodes, results, active, onSelect }: { nodes: NodeLocation[], results: MediaResult[], active: boolean, onSelect?: (item: MediaResult) => void }) => {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (map && (nodes.length > 0 || results.length > 0)) {
-      const bounds = new google.maps.LatLngBounds();
-      nodes.forEach(node => bounds.extend(node));
-      results.forEach(res => {
-        if (res.lat !== undefined && res.lng !== undefined) {
-          bounds.extend({ lat: res.lat, lng: res.lng });
-        }
-      });
-      map.fitBounds(bounds, 50);
-    }
-  }, [map, nodes, results]);
-
-  if (!active && results.length === 0) return null;
-
-  return (
-    <>
-      {/* Consensus Validator Nodes */}
-      {nodes.map((node) => (
-        <AdvancedMarker
-          key={node.id}
-          position={{ lat: node.lat, lng: node.lng }}
-        >
-          <div className="relative group/validator">
-             <div className={`w-2 h-2 rounded-full ${node.status === 'active' ? 'bg-brand-green/40 shadow-[0_0_5px_#00FF41]' : 'bg-red-500/40'} animate-pulse`} />
-             <div className="absolute inset-0 bg-brand-green/5 rounded-full animate-ping opacity-10" />
-             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover/validator:opacity-100 transition-opacity bg-black/80 border border-white/10 px-2 py-1 rounded whitespace-nowrap pointer-events-none z-[200]">
-                <span className="text-[7px] font-mono text-brand-green">VALIDATOR_{node.id}</span>
-             </div>
-          </div>
-        </AdvancedMarker>
-      ))}
-
-      {/* Media Feed Nodes */}
-      {results.map((res, i) => (
-        res.lat !== undefined && res.lng !== undefined && (
-          <AdvancedMarker
-            key={`${res.url}-${i}`}
-            position={{ lat: res.lat, lng: res.lng }}
-            onClick={() => onSelect?.(res)}
-          >
-            <div className="relative group/node cursor-pointer">
-               <div className={`w-3.5 h-3.5 rounded-full border border-white/20 flex items-center justify-center transition-transform hover:scale-125 ${res.health === 'optimal' ? 'bg-brand-green shadow-[0_0_15px_rgba(0,255,65,0.4)]' : 'bg-yellow-500'}`}>
-                  {res.type === 'radio' && <Radio className="w-2 h-2 text-black" />}
-                  {res.type === 'video' && <Video className="w-2 h-2 text-black" />}
-                  {['live_cam', 'webcam', 'stream'].includes(res.type) && <Camera className="w-2 h-2 text-black" />}
-                  {!['radio', 'video', 'live_cam', 'webcam', 'stream'].includes(res.type) && <Activity className="w-2 h-2 text-black" />}
-               </div>
-               
-               {/* Marker Tooltip */}
-               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover/node:opacity-100 transition-all bg-[#0a0a0a]/95 border border-brand-green/30 p-2 rounded-lg shadow-2xl backdrop-blur-xl min-w-[140px] z-[210] pointer-events-none">
-                  <div className="flex items-center gap-2 mb-1">
-                     <div className={`w-1 h-1 rounded-full ${res.health === 'optimal' ? 'bg-brand-green' : 'bg-yellow-500'} animate-pulse`} />
-                     <span className="text-[10px] font-black text-white uppercase truncate">{res.name}</span>
-                  </div>
-                  <div className="flex justify-between text-[7px] font-mono text-white/40 uppercase">
-                     <span>{res.type}</span>
-                     <span className="text-brand-green">NODE_LINKED</span>
-                  </div>
-               </div>
-            </div>
-          </AdvancedMarker>
-        )
-      ))}
-    </>
-  );
-};
-
-interface LogEntry {
-  id: string;
-  text: string;
-  type: 'info' | 'warn' | 'success' | 'security';
-  timestamp: string;
-}
+import { NetworkMap } from './components/NetworkMap';
+import { PlaylistViewer } from './components/PlaylistViewer';
 
 export default function App() {
   const [query, setQuery] = useState("");
@@ -210,7 +83,7 @@ export default function App() {
   const [results, setResults] = useState<MediaResult[]>([]);
   const [favorites, setFavorites] = useState<MediaResult[]>([]);
   const [history, setHistory] = useState<MediaResult[]>([]);
-  const [playlists, setPlaylists] = useState<{ id: string; name: string; items: MediaResult[] }[]>([]);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [downloads, setDownloads] = useState<DownloadTask[]>(() => {
     const saved = localStorage.getItem('nebula_downloads');
     if (saved) {
@@ -269,9 +142,9 @@ export default function App() {
   const [terminalInput, setTerminalInput] = useState("");
   const [terminalLogs, setTerminalLogs] = useState<{role: 'user' | 'system', text: string}[]>([]);
   const [systemLogs, setSystemLogs] = useState<LogEntry[]>([]);
-  const [streamQuality, setStreamQuality] = useState<"low" | "med" | "high">(() => {
+  const [streamQuality, setStreamQuality] = useState<"low" | "med" | "high" | "auto">(() => {
     const saved = localStorage.getItem('nebula_stream_quality');
-    return (saved as "low" | "med" | "high") || "med";
+    return (saved as "low" | "med" | "high" | "auto") || "auto";
   });
 
   useEffect(() => {
@@ -945,19 +818,26 @@ export default function App() {
     }
   };
 
-  const applyQualityToHls = (hls: Hls, quality: "low" | "med" | "high") => {
+  const applyQualityToHls = (hls: Hls, quality: "low" | "med" | "high" | "auto") => {
     if (!hls.levels || hls.levels.length === 0) return;
+
+    if (quality === "auto") {
+      hls.currentLevel = -1; // hls.js auto
+      addLog(`[HLS] Automatic quality adaptation enabled.`, "info");
+      return;
+    }
     
-    // Quality mapping
-    const levels = hls.levels;
+    // Sort levels by bitrate just in case
+    const levels = [...hls.levels].sort((a, b) => a.bitrate - b.bitrate);
     let targetIdx = -1;
 
-    if (quality === "low") targetIdx = 0; // First level (usually lowest)
-    else if (quality === "high") targetIdx = levels.length - 1; // Last level (usually highest)
-    else targetIdx = Math.floor(levels.length / 2); // Middle
+    // Use bitrate for selection
+    if (quality === "low") targetIdx = 0;
+    else if (quality === "high") targetIdx = levels.length - 1;
+    else targetIdx = Math.floor(levels.length / 2);
 
-    hls.currentLevel = targetIdx;
-    addLog(`[HLS] Bandwidth constrained to ${quality.toUpperCase()} tier. Level ${targetIdx} active.`, "info");
+    hls.currentLevel = hls.levels.indexOf(levels[targetIdx]);
+    addLog(`[HLS] Quality manually constrained to ${quality.toUpperCase()} tier.`, "info");
   };
 
   // Sync Quality Changes
@@ -1460,100 +1340,14 @@ export default function App() {
     );
   };
 
-  const PlaylistViewer = () => {
-    const [themeInput, setThemeInput] = useState("");
-    const [isGenerating, setIsGenerating] = useState(false);
-
-    const generatePlaylist = async (theme: string) => {
-        setIsGenerating(true);
-        addLog(`[AI] Generating playlist for theme: ${theme}...`, "info");
-        try {
-            const response = await fetch("/api/discover", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query: `Create playlist from AI analysis of "${theme}"`, type: 'all' }),
-            });
-            const data = await response.json();
-            
-            if (Array.isArray(data)) {
-                setPlaylists(prev => [...prev, { id: Date.now().toString(), name: `AI: ${theme}`, items: data }]);
-                addLog(`[AI] Playlist '${theme}' created with ${data.length} items.`, "success");
-            } else {
-                throw new Error("Generation failed");
-            }
-        } catch (err: any) {
-            addLog(`[AI] Playlist generation failed: ${err.message}`, "warn");
-        } finally {
-            setIsGenerating(false);
-            setThemeInput("");
-        }
-    };
-
-    return (
-        <div className="space-y-6">
-            <div className="bento-card p-4 bg-white/5 border border-white/10 space-y-4">
-                <h3 className="text-sm font-black text-white uppercase">Generate Playlist</h3>
-                <div className="flex gap-2">
-                    <input 
-                        type="text" 
-                        value={themeInput} 
-                        onChange={(e) => setThemeInput(e.target.value)}
-                        placeholder="Theme, e.g. 'ambient nature sounds'..."
-                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-brand-green/30"
-                    />
-                    <button 
-                        onClick={() => generatePlaylist(themeInput)}
-                        disabled={isGenerating || !themeInput}
-                        className="bg-brand-green/20 hover:bg-brand-green/30 text-brand-green px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 border border-brand-green/20"
-                    >
-                        {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <PlusSquare className="w-3 h-3" />}
-                        GENERATE
-                    </button>
-                </div>
-            </div>
-            {playlists.map((playlist) => (
-                <div key={playlist.id} className="bento-card p-4 bg-white/5 border border-white/10">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-black text-white uppercase">{playlist.name}</h3>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => {
-                        setActivePlaylistId(playlist.id);
-                        if (playlist.items.length > 0) playMedia(playlist.items[0]);
-                      }}
-                      className="bg-brand-green/20 hover:bg-brand-green/30 text-brand-green px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1"
-                    >
-                      <Play className="w-3 h-3" /> PLAY
-                    </button>
-                    <button 
-                      onClick={() => setPlaylists(prev => prev.filter(p => p.id !== playlist.id))}
-                      className="bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-                <Reorder.Group axis="y" values={playlist.items} onReorder={(items) => {
-                    setPlaylists(prev => prev.map(p => p.id === playlist.id ? { ...p, items } : p));
-                }} className="space-y-2">
-                    {playlist.items.map((item) => (
-                    <Reorder.Item key={item.url} value={item} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 flex items-center gap-4 cursor-grab transition-colors">
-                        <div className="text-white/20"><List className="w-4 h-4" /></div>
-                        <div className="flex-1 text-xs text-white truncate">{item.name}</div>
-                        <button onClick={() => {
-                          setActivePlaylistId(playlist.id);
-                          playMedia(item);
-                        }} className="text-white/40 hover:text-brand-green transition-colors">
-                          <Play className="w-4 h-4" />
-                        </button>
-                    </Reorder.Item>
-                    ))}
-                </Reorder.Group>
-                </div>
-            ))}
-        </div>
-    );
-  };
+            {/* Playlist Viewer - replaced with external component */}
+            <PlaylistViewer 
+                playlists={playlists}
+                setPlaylists={setPlaylists}
+                playMedia={playMedia}
+                addLog={addLog}
+                setActivePlaylistId={setActivePlaylistId}
+            />
 
   return (
     <div className="h-screen w-full bg-[#050505] text-white p-4 font-sans select-none overflow-hidden flex flex-col gap-4 relative">
@@ -1900,7 +1694,7 @@ export default function App() {
                         exit={{ opacity: 0, scale: 0.9 }}
                         layout
                         onClick={() => playMedia(item)}
-                        className={`bento-card p-4 group cursor-pointer relative overflow-hidden transition-all border-white/5 hover:border-brand-green/30 ${currentMedia?.url === item.url ? 'border-brand-green/30 bg-brand-green/5' : 'bg-white/5 hover:bg-white/[0.08]'}`}
+                        className={`bento-card p-4 group cursor-pointer relative overflow-hidden transition-all border-white/5 hover:border-brand-green/30 ${currentMedia?.url === item.url ? 'border-brand-green/50 shadow-[0_0_15px_rgba(34,197,94,0.2)] bg-brand-green/10' : 'bg-white/5 hover:bg-white/[0.08]'}`}
                       >
                          <div className="flex justify-between items-start mb-4">
                             <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center border border-white/10 group-hover:border-brand-green/30 transition-all">
@@ -2188,71 +1982,46 @@ export default function App() {
            <div className="flex-1 bento-card p-6 flex flex-col">
               <h3 className="text-xs font-mono text-brand-green mb-4 tracking-widest uppercase opacity-80">Feed Matrix</h3>
               <div className="flex-1 grid grid-cols-1 gap-4">
-                 {(currentMedia?.type === 'radio' || currentMedia?.type === 'video' || currentMedia?.type === 'live_cam' || currentMedia?.type === 'media' || currentMedia?.type === 'webcam' || currentMedia?.type === 'stream' || currentMedia?.type === 'image' || currentMedia?.type === 'document' || currentMedia?.type === 'rom' || currentMedia?.type === 'book') ? (
-                    <>
-                    {isVideoFloating && !isVideoMinimized && (
-                        <div className="bg-black/40 rounded-2xl border border-dashed border-white/20 relative flex items-center justify-center flex-1 opacity-30">
-                            <span className="text-[10px] font-mono text-white/50 uppercase tracking-widest">Feed Detached</span>
-                        </div>
-                    )}
-                    {(isVideoFloating && isVideoMinimized) && (
-                        <div className="flex-1" />
-                    )}
-                    <div
-                        className="flex-1 border border-brand-green/20 bg-black rounded-2xl relative overflow-hidden flex items-center justify-center group"
-                    >
-                      {currentMedia?.type === 'radio' ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-brand-green/10 to-black p-6 relative">
-                           <div className="w-32 h-32 rounded-full border-2 border-brand-green/20 flex items-center justify-center relative">
-                              <Radio className="w-12 h-12 text-brand-green animate-pulse" />
-                              <div className="absolute inset-0 border border-brand-green/10 rounded-full animate-[ping_3s_linear_infinite]" />
-                              <div className="absolute inset-0 border border-brand-cyan/5 rounded-full animate-[ping_5s_linear_infinite]" />
-                              <div className="absolute inset-0 bg-brand-green/5 rounded-full animate-pulse opacity-20" />
-                           </div>
-                           <div className="mt-6 text-center z-10">
-                              <h4 className="text-sm font-black text-white mb-1">{currentMedia.name}</h4>
-                              <p className="text-[10px] text-brand-green font-mono uppercase opacity-60">Audio Signal Synchronized</p>
-                           </div>
-                           <div className="absolute bottom-0 left-0 right-0 h-1/2 opacity-30 pointer-events-none">
-                              <canvas ref={canvasRef} width="400" height="150" className="w-full h-full" />
-                           </div>
-                        </div>
-                      ) : currentMedia?.type === 'image' ? (
-                        <img src={currentMedia.url} className="w-full h-full object-contain bg-black" alt={currentMedia.name} crossOrigin="anonymous" />
-                      ) : currentMedia?.type === 'document' || currentMedia?.type === 'rom' || currentMedia?.type === 'book' ? (
-                        <iframe src={currentMedia.url} className="w-full h-full bg-white relative z-[1]" title={currentMedia.name} />
-                      ) : currentMedia?.url?.includes('youtube.com') || currentMedia?.url?.includes('youtu.be') ? (
-                        <iframe 
-                          src={`https://www.youtube.com/embed/${currentMedia.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1] ?? ''}?autoplay=1&mute=0&controls=1`}
-                          className="w-full h-full object-cover"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      ) : (
-                        <div id="video-container" className="relative w-full h-full group overflow-hidden flex items-center justify-center bg-black">
-                          <video 
-                            ref={videoRef} 
-                            onEnded={() => setIsPlaying(false)}
-                            className={`max-h-full max-w-full transition-opacity duration-700 ${isReconnecting ? 'opacity-20' : 'opacity-100'}`} 
-                            controls={false} 
-                            muted={false} 
-                            crossOrigin="anonymous" 
-                          />
-                          <button 
-                            onClick={() => {
-                                const container = document.getElementById('video-container');
-                                if (!document.fullscreenElement) {
-                                    container?.requestFullscreen().catch(e => console.error(e));
-                                } else {
-                                    document.exitFullscreen().catch(e => console.error(e));
-                                }
-                            }}
-                            className="absolute bottom-4 right-4 z-50 p-2 bg-black/60 rounded hover:bg-white/20 transition-all border border-white/10 opacity-0 group-hover:opacity-100"
-                          >
-                            <Maximize2 className="w-4 h-4 text-white" />
-                          </button>
-                        </div>
-                      )}
+                 {currentMedia ? (
+    <>
+    <div className="flex-1 grid grid-cols-1 bg-black/40 rounded-2xl border border-dashed border-white/20 relative items-center justify-center overflow-hidden">
+        {isVideoFloating && !isVideoMinimized && (
+            <div className="absolute inset-0 z-10 bg-black/80 flex items-center justify-center opacity-80">
+                <span className="text-[10px] font-mono text-white/50 uppercase tracking-widest">Feed Detached</span>
+            </div>
+        )}
+        
+        {/* Render media based on type */}
+        {currentMedia.type === 'radio' ? (
+           <div className="w-32 h-32 rounded-full border-2 border-brand-green/20 flex items-center justify-center relative">
+              <Radio className="w-12 h-12 text-brand-green animate-pulse" />
+              <div className="absolute inset-0 border border-brand-green/10 rounded-full animate-[ping_3s_linear_infinite]" />
+              <div className="absolute inset-0 border border-brand-cyan/5 rounded-full animate-[ping_5s_linear_infinite]" />
+              <div className="absolute inset-0 bg-brand-green/5 rounded-full animate-pulse opacity-20" />
+           </div>
+        ) : currentMedia.type === 'image' ? (
+          <img src={currentMedia.url} className="w-full h-full object-contain bg-black" alt={currentMedia.name} crossOrigin="anonymous" />
+        ) : (currentMedia.type === 'document' || currentMedia.type === 'rom' || currentMedia.type === 'book') ? (
+          <iframe src={currentMedia.url} className="w-full h-full bg-white relative z-[1]" title={currentMedia.name} />
+        ) : (currentMedia.url?.includes('youtube.com') || currentMedia.url?.includes('youtu.be')) ? (
+          <iframe 
+            src={`https://www.youtube.com/embed/${currentMedia.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1] ?? ''}?autoplay=1&mute=0&controls=1`}
+            className="w-full h-full object-cover"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        ) : (
+          <div id="video-container" className="relative w-full h-full group overflow-hidden flex items-center justify-center bg-black">
+            <video 
+              ref={videoRef} 
+              onEnded={() => setIsPlaying(false)}
+              className={`max-h-full max-w-full transition-opacity duration-700 ${isReconnecting ? 'opacity-20' : 'opacity-100'}`} 
+              controls={false} 
+              muted={false} 
+              crossOrigin="anonymous" 
+            />
+          </div>
+        )}
                       
                        {isSubtitleEnabled && (subtitles || isGeneratingSubtitles) && (
                           <div className="absolute bottom-4 left-4 right-4 bg-black/70 p-2 text-center text-xs font-mono text-white rounded backdrop-blur-sm border border-white/10">
@@ -2331,6 +2100,17 @@ export default function App() {
                               </button>
                             </div>
                             
+                            <div className="col-span-2 border-b border-white/10 pb-4 mb-4">
+                                <h4 className="text-white/40 font-bold mb-3">SYSTEM_AND_SIGNAL_METRICS</h4>
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                                 <div className="flex justify-between"><span className="text-white/40">CODEC</span><span className="text-brand-green">H.264 / AAC</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">FRAME_RATE</span><span className="text-brand-green">60 FPS</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">BUFFER_STATUS</span><span className="text-yellow-500">3.4s / 5.0s</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">JITTER</span><span className="text-brand-cyan">2.1ms</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">PACKET_LOSS</span><span className="text-red-500">0.003%</span></div>
+                                 <div className="flex justify-between"><span className="text-white/40">NETWORK</span><span className="text-brand-cyan">85.6 MBPS</span></div>
+                                </div>
+                            </div>
                             <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-xs font-mono mb-8 text-white/70">
                               <div className="flex flex-col">
                                 <span className="text-white/40 mb-1">TYPE_IDENTIFIER</span>
@@ -2708,7 +2488,7 @@ export default function App() {
                        </div>
 
                        <div className="flex items-center bg-white/5 rounded-xl border border-white/10 p-0.5 ml-2">
-                          {([ 'low', 'med', 'high' ] as const).map((q) => (
+                          {([ 'auto', 'low', 'med', 'high' ] as const).map((q) => (
                             <button
                               key={q}
                               onClick={() => setStreamQuality(q)}
