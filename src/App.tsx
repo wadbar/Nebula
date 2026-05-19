@@ -213,7 +213,7 @@ const MatrixCard = React.memo(({
              <span className="truncate">{item.url}</span>
           </a>
         </div>
-        <p className="text-[9px] text-white/40 line-clamp-1 mb-4 italic">{item.description}</p>
+        <RenderTextWithLinks text={item.description} className="text-[9px] text-white/40 line-clamp-1 mb-4 italic" />
         <div className="flex items-center justify-between">
           <div className="flex gap-1">
              {item.tags?.slice(0, 2).map((t: any) => (
@@ -298,6 +298,7 @@ const ListCard = React.memo(({
           <h4 className="text-sm font-black text-white truncate group-hover:text-brand-green transition-colors flex items-center gap-2">
             {item.name}
           </h4>
+          <RenderTextWithLinks text={item.description} className="text-[10px] text-white/40 line-clamp-1 italic mt-1" />
           <div className="flex items-center gap-2 mt-2 overflow-hidden">
             <a 
               href={item.url}
@@ -2385,6 +2386,21 @@ export default function App() {
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+        ) : (currentMedia.url?.includes('archive.org/details/') && !currentMedia.url.match(/\.(mp4|mkv|avi|m4v|m3u8)$/i)) ? (
+           <iframe 
+             src={`https://archive.org/embed/${currentMedia.url.split('/details/')[1].split('?')[0]}`} 
+             className="w-full h-full bg-black" 
+             allowFullScreen 
+             title={currentMedia.name} 
+           />
+        ) : (currentMedia.url?.includes('dailymotion.com/video/')) ? (
+           <iframe 
+             src={`https://www.dailymotion.com/embed/video/${currentMedia.url.split('/video/')[1].split('?')[0]}?autoplay=1`} 
+             className="w-full h-full bg-black shadow-2xl" 
+             allow="autoplay; fullscreen; picture-in-picture" 
+             allowFullScreen 
+             title={currentMedia.name} 
+           />
         ) : (
           <div id="video-container" className="relative w-full h-full group overflow-hidden flex items-center justify-center bg-black">
             <video 
@@ -2614,7 +2630,7 @@ export default function App() {
                             
                             <div className="mb-8">
                                 <h4 className="text-[10px] font-black text-white/40 uppercase mb-2 tracking-[0.2em]">Plot Summary / Briefing</h4>
-                                <p className="text-sm leading-relaxed text-white/80">{currentMedia.description}</p>
+                                <RenderTextWithLinks text={currentMedia.description} className="text-sm leading-relaxed text-white/80" />
                             </div>
 
                             <div className="flex flex-wrap gap-2 mb-8">
@@ -2638,7 +2654,7 @@ export default function App() {
                             {currentMedia.description && (
                               <div className="mt-auto pt-4 border-t border-white/10">
                                 <span className="text-white/40 text-[10px] uppercase font-mono block mb-2 tracking-widest">Decrypted Synopsis</span>
-                                <p className="text-sm text-white/80 leading-relaxed font-sans">{currentMedia.description}</p>
+                                <RenderTextWithLinks text={currentMedia.description} className="text-sm text-white/80 leading-relaxed font-sans" />
                               </div>
                             )}
                           </motion.div>

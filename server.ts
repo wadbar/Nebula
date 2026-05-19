@@ -95,25 +95,165 @@ async function startServer() {
             if (activeType === 'video' || activeType === 'tv') archiveQuery += ' AND mediatype:movies';
             if (activeType === 'document' || activeType === 'book') archiveQuery += ' AND (mediatype:texts OR mediatype:data)';
             
-            const archiveRes = await fetchWithTimeout(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(archiveQuery)}&output=json&rows=15`, {}, SCRAPER_TIMEOUT);
+            const archiveRes = await fetchWithTimeout(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(archiveQuery)}&output=json&rows=10`, {}, SCRAPER_TIMEOUT);
             if (archiveRes.ok) {
                const archiveData = await archiveRes.json();
                const docs = archiveData.response?.docs || [];
+               
+               // For each doc, try to be more precise about the URL
                docs.forEach((doc: any) => {
                   const mediatype = doc.mediatype === 'audio' ? 'audio' : (doc.mediatype === 'movies' ? 'video' : (doc.mediatype === 'software' ? 'rom' : 'document'));
+                  
+                  // Heuristic: If it's a known mediatype, we can guess the download directory
+                  // But direct file links vary. We'll use the detail page as fallback, 
+                  // but in a real scraper we'd hit the /metadata API. 
+                  // To keep it fast, we'll suggest the detail page, but the client-side 
+                  // might need to handle Archive.org specifically (e.g. via an iframe if it's not a direct stream).
+                  
                   osIntSignals.push({
                      id: `arch-${doc.identifier}`,
                      name: doc.title || doc.identifier,
                      url: `https://archive.org/details/${doc.identifier}`,
                      type: mediatype,
                      category: doc.collection ? (Array.isArray(doc.collection) ? doc.collection[0] : doc.collection) : 'Archive',
-                     description: `[Archive.org] ${doc.subject ? (Array.isArray(doc.subject) ? doc.subject.join(', ') : doc.subject) : 'Public Domain Repository'}`,
+                     description: `[Archive.org] ${doc.subject ? (Array.isArray(doc.subject) ? doc.subject.join(', ') : doc.subject) : 'Public Domain Asset'}`,
                      service: 'ARCHIVE_ORG',
-                     relevance_score: 0.88
+                     relevance_score: 0.88,
+                     metadata: { identifier: doc.identifier }
                   });
                });
             }
           } catch (e) { console.warn("[SCRAPER] Archive.org timed out or failed."); }
+        })(),
+
+        // Dailymotion
+        (async () => {
+          if (['video', 'all', 'movie'].includes(activeType)) {
+            try {
+              const res = await fetchWithTimeout(`https://api.dailymotion.com/videos?search=${encodeURIComponent(query)}&fields=id,title,url,description&limit=15`, {}, SCRAPER_TIMEOUT);
+              if (res.ok) {
+                const data = await res.json();
+                data.list?.forEach((v: any) => {
+                  osIntSignals.push({
+                    id: `dm-${v.id}`,
+                    name: v.title,
+                    url: v.url,
+                    type: 'video',
+                    category: 'Video Feed',
+                    description: `[Dailymotion] ${v.description || 'Public video content'}`,
+                    service: 'DAILYMOTION',
+                    relevance_score: 0.8
+                  });
+                });
+              }
+            } catch (e) {}
+          }
+        })(),
+
+        // PeerTube (Generic Search via public instance or standard API)
+        (async () => {
+           if (['video', 'all'].includes(activeType)) {
+             try {
+               // Searching a large instance as a gateway
+               const res = await fetchWithTimeout(`https://peertube.tv/api/v1/search/videos?search=${encodeURIComponent(query)}&count=10`, {}, SCRAPER_TIMEOUT);
+               if (res.ok) {
+                 const data = await res.json();
+                 data.data?.forEach((v: any) => {
+                   osIntSignals.push({
+                     id: `pt-${v.uuid}`,
+                     name: v.name,
+                     url: v.url,
+                     type: 'video',
+                     category: 'Peer-to-Peer Video',
+                     description: `[PeerTube] ${v.description?.substring(0, 100) || 'Decentralized media node'}`,
+                     service: 'PEERTUBE',
+                     relevance_score: 0.82
+                   });
+                 });
+               }
+             } catch (e) {}
+           }
+        })(),
+
+        // NASA API
+        (async () => {
+          if (['all', 'video', 'image'].includes(activeType)) {
+            try {
+              const res = await fetchWithTimeout(`https://images-api.nasa.gov/search?q=${encodeURIComponent(query)}&media_type=video,image`, {}, SCRAPER_TIMEOUT);
+              if (res.ok) {
+                const data = await res.json();
+                data.collection?.items?.slice(0, 10).forEach((item: any) => {
+                  const dataObj = item.data?.[0];
+                  if (dataObj) {
+                    osIntSignals.push({
+                      id: `nasa-${dataObj.nasa_id}`,
+                      name: dataObj.title,
+                      url: `https://images-api.nasa.gov/asset/${dataObj.nasa_id}`,
+                      type: dataObj.media_type === 'video' ? 'video' : 'image',
+                      category: 'Scientific Data',
+                      description: `[NASA] ${dataObj.description?.substring(0, 150)}...`,
+                      service: 'NASA_EXPLORER',
+                      relevance_score: 0.9
+                    });
+                  }
+                });
+              }
+            } catch (e) {}
+          }
+        })(),
+
+        // Project Gutenberg (Books)
+        (async () => {
+          if (['book', 'document', 'all'].includes(activeType)) {
+            try {
+              const res = await fetchWithTimeout(`https://gutendex.com/books/?search=${encodeURIComponent(query)}`, {}, SCRAPER_TIMEOUT);
+              if (res.ok) {
+                const data = await res.json();
+                data.results?.slice(0, 10).forEach((b: any) => {
+                  osIntSignals.push({
+                    id: `guten-${b.id}`,
+                    name: b.title,
+                    url: `https://www.gutenberg.org/ebooks/${b.id}`,
+                    type: 'book',
+                    category: 'Literature',
+                    description: `[Gutenberg] Author: ${b.authors?.map((a: any) => a.name).join(', ')}. Languages: ${b.languages?.join(', ')}`,
+                    service: 'PROJECT_GUTENBERG',
+                    relevance_score: 0.86
+                  });
+                });
+              }
+            } catch (e) {}
+          }
+        })(),
+
+        // TVMaze (TV Shows Intel)
+        (async () => {
+          if (['video', 'tv', 'all'].includes(activeType)) {
+            try {
+              const res = await fetchWithTimeout(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`, {}, SCRAPER_TIMEOUT);
+              if (res.ok) {
+                const data = await res.json();
+                data.slice(0, 10).forEach((item: any) => {
+                  const s = item.show;
+                  osIntSignals.push({
+                    id: `tvm-${s.id}`,
+                    name: s.name,
+                    url: s.url,
+                    type: 'tv',
+                    category: s.genres?.[0] || 'TV Show',
+                    description: `[TVMaze] ${s.summary?.replace(/<[^>]*>?/gm, '').substring(0, 150)}...`,
+                    service: 'TV_MAZE_INTEL',
+                    relevance_score: 0.8
+                  });
+                });
+              }
+            } catch (e) {}
+          }
+        })(),
+
+        // Pixabay (Stock Media - Public API usually needs key, but we can try common search patterns)
+        (async () => {
+          // Skipping for now as it needs reliable public keys, but AI will handle this via Google Search
         })(),
 
         // Wikipedia
@@ -176,12 +316,14 @@ async function startServer() {
         const nebulaResponse = await generate({
           prompt: `NEBULA_AI_SERVICE_V1_ULTRA_DISCOVERY. TARGET_QUERY: "${query}". VECTOR: ${activeService}.
           DISCOVERY STANDARD:
-          - MUST return real, functional, direct deep links or magnets.
-          - Search diverse archetypes: Video, Audio, Live TV, Live Cam, Docs, Image, ROM.
+          - MUST return real, functional, direct deep links, stream URLs, or magnet links.
+          - Search diverse platforms: YouTube, Dailymotion, Vimeo, PeerTube, SoundCloud, Bandcamp, Radio-Browser, NASA, Archive.org, Wikipedia, Project Gutenberg, Open Library, and generic high-relevance media nodes.
+          - DO NOT show bias towards any single provider. Deliver a GLOBAL media signal snapshot.
+          - Search diverse archetypes: Video, Audio, Live TV, Live Cam, Docs, Image, ROM, Dataset.
           - REQUIRED JSON SCHEMA: Array of results mapping to { name, url, type, category, description, service, quality, relevance_score }.`,
-          systemInstruction: "You are the NEBULA V1 Forensic Media Discoverer. Use multi-tier scraping heuristics to find real media links. Do NOT simulate.",
+          systemInstruction: "You are the NEBULA V1 Forensic Media Discoverer. Use multi-tier scraping heuristics and real-time network intelligence to find real media links globally. Do NOT simulate. Prioritize direct stream URLs (.m3u8, .mp3, .mp4, .mkv) where possible.",
           responseType: 'json',
-          temperature: 0.1,
+          temperature: 0.2, // Slightly higher for more diversity
           useSearch: true
         });
         
