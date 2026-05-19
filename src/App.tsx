@@ -76,6 +76,13 @@ const DARK_MAP_ID = "dark_mesh_v1";
 import { NetworkMap } from './components/NetworkMap';
 import { PlaylistViewer } from './components/PlaylistViewer';
 
+const formatTime = (timeInSeconds: number) => {
+  if (isNaN(timeInSeconds)) return "00:00";
+  const m = Math.floor(timeInSeconds / 60).toString().padStart(2, '0');
+  const s = Math.floor(timeInSeconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+};
+
 export default function App() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -191,6 +198,8 @@ export default function App() {
   const [subtitles, setSubtitles] = useState<string>("");
   const [isSubtitleEnabled, setIsSubtitleEnabled] = useState(false);
   const [isGeneratingSubtitles, setIsGeneratingSubtitles] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY = 3000; // 3 seconds
@@ -417,6 +426,7 @@ export default function App() {
   // Sync volume
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
+    if (videoRef.current) videoRef.current.volume = volume;
   }, [volume]);
 
   // Simulated live security logs
@@ -938,7 +948,17 @@ export default function App() {
       - play/stop: Toggle signal engagement.
       - clear logs: Purge system buffer.
       - stats: View kernel performance metrics.
-      - roadmap: Reveal system evolution plan.`;
+      - roadmap: Reveal system evolution plan.
+      - shortcuts: Display keyboard shortcuts.`;
+    }
+
+    if (input === 'shortcuts') {
+      return `KEYBOARD SHORTCUTS:
+      - Space: Play/Pause
+      - Arrow Left/Right: Skip Prev/Next
+      - Arrow Up/Down: Volume +/-
+      - [ / ]: Previous/Next Category
+      - Shift + [ / ]: Previous/Next Tab`;
     }
 
     if (input === 'roadmap') {
@@ -1082,16 +1102,36 @@ export default function App() {
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No readable stream");
 
+      let lastTime = Date.now();
+      let bytesSinceLastUpdate = 0;
+      let downloadSpeed = 0;
+      let timeRemaining = 0;
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         downloadChunks.current[taskId].push(value);
         loaded += value.length;
+        bytesSinceLastUpdate += value.length;
+        
+        const now = Date.now();
+        const timeDiff = now - lastTime;
+        if (timeDiff > 1000) {
+            downloadSpeed = (bytesSinceLastUpdate / timeDiff) * 1000; // bytes per second
+            if (total) {
+                timeRemaining = (total - loaded) / downloadSpeed;
+            }
+            lastTime = now;
+            bytesSinceLastUpdate = 0;
+        }
+
         setDownloads(prev => prev.map(t => t.id === taskId ? { 
           ...t, 
           loaded, 
           total: total || Math.max(loaded, t.total), 
-          progress: total ? (loaded / total) * 100 : t.progress + 0.1 
+          progress: total ? (loaded / total) * 100 : t.progress + 0.1,
+          downloadSpeed,
+          timeRemaining
         } : t));
       }
       
@@ -1256,6 +1296,71 @@ export default function App() {
     }
   };
 
+  const handleTogglePlayback = () => {
+    if (isPlaying) {
+      handlePause();
+    } else {
+      handlePlay();
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+      
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          handleTogglePlayback();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          handleSkip();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          handleSkipBackward();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setVolume(prev => Math.min(1, prev + 0.1));
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          setVolume(prev => Math.max(0, prev - 0.1));
+          break;
+        case 'BracketRight':
+          e.preventDefault();
+          if (e.shiftKey) {
+            const tabs: typeof activeTab[] = ["all", "favorites", "history", "playlists"]; // Simplified tab navigation
+            const idx = tabs.indexOf(activeTab);
+            setActiveTab(tabs[(idx + 1) % tabs.length]);
+          } else {
+            const idx = categories.indexOf(activeCategory);
+            setActiveCategory(categories[(idx + 1) % categories.length]);
+          }
+          break;
+        case 'BracketLeft':
+          e.preventDefault();
+          if (e.shiftKey) {
+            const tabs: typeof activeTab[] = ["all", "favorites", "history", "playlists"];
+            const idx = tabs.indexOf(activeTab);
+            setActiveTab(tabs[(idx - 1 + tabs.length) % tabs.length]);
+          } else {
+            const idx = categories.indexOf(activeCategory);
+            setActiveCategory(categories[(idx - 1 + categories.length) % categories.length]);
+          }
+          break;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying, activeCategory, activeTab, categories]);
+
   const handlePlay = () => {
     if (!isPlaying && currentMedia) {
       const type = currentMedia.type;
@@ -1395,6 +1500,17 @@ export default function App() {
           </div>
         </div>
         <div className="flex items-center gap-6 relative z-10">
+          {!navigator.onLine ? (
+            <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-red-500 animate-pulse">
+              <AlertCircle className="w-3 h-3" />
+              OFFLINE_MODE
+            </div>
+          ) : systemStats.latency > 100 || systemStats.packetLoss > 2 ? (
+            <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-yellow-500 animate-pulse">
+              <Activity className="w-3 h-3" />
+              DEGRADED_NET
+            </div>
+          ) : null}
           <button 
             onClick={() => setShowDownloads(!showDownloads)}
             className={`flex items-center gap-2 text-[10px] font-black tracking-widest transition-colors ${downloads.filter(d => d.status === 'downloading').length > 0 ? 'text-brand-green animate-pulse' : 'text-white/60 hover:text-white'}`}
@@ -1674,7 +1790,13 @@ export default function App() {
 
           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar pt-2">
             {activeTab === 'playlists' ? (
-              <PlaylistViewer />
+              <PlaylistViewer 
+                playlists={playlists}
+                setPlaylists={setPlaylists}
+                playMedia={playMedia}
+                addLog={addLog}
+                setActivePlaylistId={setActivePlaylistId}
+              />
             ) : viewMode === 'matrix' && results.length > 0 && activeTab !== 'favorites' && activeTab !== 'history' ? (
               <div className="grid grid-cols-2 gap-4 auto-rows-max">
                  <AnimatePresence mode="popLayout">
@@ -2015,11 +2137,44 @@ export default function App() {
             <video 
               ref={videoRef} 
               onEnded={() => setIsPlaying(false)}
+              onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+              onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
               className={`max-h-full max-w-full transition-opacity duration-700 ${isReconnecting ? 'opacity-20' : 'opacity-100'}`} 
               controls={false} 
               muted={false} 
               crossOrigin="anonymous" 
             />
+            {currentMedia && (
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex items-center gap-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={handleTogglePlayback}
+                  className="text-white hover:text-brand-green"
+                >
+                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                </button>
+                <span className="text-white text-xs font-mono w-10 text-right">{formatTime(currentTime)}</span>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max={duration || 0} 
+                  value={currentTime || 0} 
+                  onChange={(e) => {
+                    if(videoRef.current) videoRef.current.currentTime = parseFloat(e.target.value);
+                  }}
+                  className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-brand-green"
+                />
+                <span className="text-white text-xs font-mono w-10">{formatTime(duration)}</span>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="1" 
+                  step="0.1" 
+                  value={volume} 
+                  onChange={(e) => setVolume(parseFloat(e.target.value))}
+                  className="w-20 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-brand-green"
+                />
+              </div>
+            )}
           </div>
         )}
                       
@@ -2713,8 +2868,16 @@ export default function App() {
                          <span className="text-[10px] font-mono whitespace-nowrap text-brand-green">{task.progress.toFixed(0)}%</span>
                       </div>
                       <div className="flex justify-between items-end mt-2">
-                        <div className="text-[10px] font-mono text-white/40 uppercase">
-                          {task.status === 'downloading' ? `${(task.loaded / 1024 / 1024).toFixed(1)} MB / ${(task.total / 1024 / 1024).toFixed(1)} MB` : task.status}
+                        <div className="flex flex-col gap-1">
+                          <div className="text-[10px] font-mono text-white/40 uppercase">
+                            {task.status === 'downloading' ? `${(task.loaded / 1024 / 1024).toFixed(1)} MB / ${(task.total / 1024 / 1024).toFixed(1)} MB` : task.status}
+                          </div>
+                          {task.status === 'downloading' && (
+                            <div className="text-[9px] font-mono text-white/30 uppercase flex gap-2">
+                              <span>{task.downloadSpeed ? `${(task.downloadSpeed / 1024 / 1024).toFixed(2)} MB/s` : 'Calculating...'}</span>
+                              <span>{task.timeRemaining ? `${Math.ceil(task.timeRemaining)}s left` : ''}</span>
+                            </div>
+                          )}
                         </div>
                         <div className="flex gap-1">
                           {task.status === 'downloading' && (

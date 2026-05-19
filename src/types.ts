@@ -41,6 +41,8 @@ export interface DownloadTask {
   total: number;
   error?: string;
   timestamp: number;
+  downloadSpeed?: number;
+  timeRemaining?: number;
 }
 
 export interface ValidationResult {

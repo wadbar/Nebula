@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Trash2, List, PlusSquare, RefreshCw } from 'lucide-react';
+import { Play, Trash2, List, PlusSquare, RefreshCw, Edit2, Download, Check } from 'lucide-react';
 import { Reorder } from 'motion/react';
 import { MediaResult, Playlist } from '../types';
 
@@ -18,6 +18,8 @@ export const PlaylistViewer = ({
 }) => {
     const [themeInput, setThemeInput] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingName, setEditingName] = useState("");
 
     const generatePlaylist = async (theme: string) => {
         setIsGenerating(true);
@@ -48,6 +50,27 @@ export const PlaylistViewer = ({
         if (!name) return;
         setPlaylists(prev => [...prev, { id: Date.now().toString(), name, items: [] }]);
         addLog(`Playlist '${name}' created.`, "success");
+    };
+
+    const handleExport = (playlist: Playlist) => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(playlist, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `playlist_${playlist.name.replace(/\s+/g, '_')}.json`);
+        document.body.appendChild(downloadAnchorNode); // required for firefox
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        addLog(`Exported playlist: ${playlist.name}`, "info");
+    };
+
+    const saveRename = (id: string) => {
+        if (!editingName.trim()) {
+            setEditingId(null);
+            return;
+        }
+        setPlaylists(prev => prev.map(p => p.id === id ? { ...p, name: editingName } : p));
+        setEditingId(null);
+        addLog(`Renamed playlist.`, "success");
     };
 
     return (
@@ -86,8 +109,38 @@ export const PlaylistViewer = ({
             {playlists.map((playlist) => (
                 <div key={playlist.id} className="bento-card p-4 bg-white/5 border border-white/10">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-black text-white uppercase">{playlist.name}</h3>
-                  <div className="flex gap-2">
+                  {editingId === playlist.id ? (
+                      <div className="flex items-center gap-2 flex-1 mr-4">
+                          <input 
+                              type="text"
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && saveRename(playlist.id)}
+                              className="flex-1 bg-black/40 border border-brand-green/50 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+                              autoFocus
+                          />
+                          <button onClick={() => saveRename(playlist.id)} className="text-brand-green hover:text-white transition-colors">
+                              <Check className="w-4 h-4" />
+                          </button>
+                      </div>
+                  ) : (
+                      <h3 className="text-sm font-black text-white uppercase flex items-center gap-2 group flex-1">
+                          {playlist.name}
+                          <button 
+                              onClick={() => { setEditingId(playlist.id); setEditingName(playlist.name); }} 
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-white/40 hover:text-white"
+                          >
+                              <Edit2 className="w-3 h-3" />
+                          </button>
+                      </h3>
+                  )}
+                  <div className="flex gap-2 shrink-0">
+                    <button 
+                      onClick={() => handleExport(playlist)}
+                      className="bg-white/5 hover:bg-white/10 text-white/70 px-2 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 border border-white/10"
+                    >
+                      <Download className="w-3 h-3" />
+                    </button>
                     <button 
                       onClick={() => {
                         setActivePlaylistId(playlist.id);
@@ -115,7 +168,7 @@ export const PlaylistViewer = ({
                         <button onClick={() => {
                           setActivePlaylistId(playlist.id);
                           playMedia(item);
-                        }} className="text-white/40 hover:text-brand-green transition-colors">
+                        }} className="text-white/40 hover:text-brand-green transition-colors cursor-pointer" onPointerDown={e => e.stopPropagation()}>
                           <Play className="w-4 h-4" />
                         </button>
                     </Reorder.Item>

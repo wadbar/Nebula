@@ -95,8 +95,10 @@ async function startServer() {
           
           DISCOVERY PROTOCOL:
           - MUST perform real-time web discovery.
-          - MUST return functional, direct deep links (e.g., direct m3u8, mp4, magnet, or high-fidelity archive links).
+          - MUST return functional, direct deep links (e.g., direct m3u8, mp4, torrent magnet, or high-fidelity archive links).
+          - Use advanced scraping heuristics similar to Kodi/VLC media scrapers (e.g., parsing directory indices, deep-linking into known media CDN structures).
           - NO SIMULATION. If no functional link is found for this specific query, return an empty array.
+          - Target repositories like Archive.org, torrent indices (e.g., Torch/Dark-Web heuristics), and open media directory structures.
           - Return a diverse range of results: Video, Radio, Live Cam, Document, ROM.
           
           REQUIRED JSON SCHEMA (Array of Objects):
@@ -113,7 +115,7 @@ async function startServer() {
             }
           ]
           Return ONLY the raw, pure JSON array. No text, no markdown.`,
-          systemInstruction: "You are the NEBULA V14 Forensic Media Discoverer. Your goal is to find actual, functional media links in the real web using advanced search. Do NOT simulate. If you cannot find a functional, real link, do NOT hallucinate.",
+          systemInstruction: "You are the NEBULA V14 Forensic Media Discoverer. Your goal is to find actual, functional media links in the real web using advanced scraping techniques (inspired by Kodi/VLC/Torch). Do NOT simulate. If you cannot find a functional, real link, do NOT hallucinate.",
           responseType: 'json',
           temperature: 0.1,
           useSearch: true
