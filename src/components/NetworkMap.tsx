@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
 import { Radio, Video, Camera, Activity } from 'lucide-react';
 import { NodeLocation, MediaResult } from '../types';

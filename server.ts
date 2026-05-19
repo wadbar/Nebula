@@ -38,7 +38,7 @@ async function startServer() {
   app.use(express.json({ limit: "1mb" }));
 
   // SECURITY MIDDLEWARE: Basic headers
-  app.use((req, res, next) => {
+  app.use((_req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-XSS-Protection", "1; mode=block");
     next();
@@ -207,20 +207,42 @@ async function startServer() {
       
       const uniqueSignals = Array.from(new Map(allSignals.map(item => [item.url, item])).values());
 
-      // FAST VALIDATION (First 15 results for performance)
-      const resultsToValidate = uniqueSignals.slice(0, 25);
+      // FAST VALIDATION (First 25 results for performance)
+      const resultsToValidate = uniqueSignals.slice(0, 30);
       const validatedSignals = await Promise.all(
         resultsToValidate.map(async (signal) => {
           try {
-            // Passive validation for complex CDNs
-            if (signal.url.includes("youtube.com") || signal.url.includes("youtu.be") || signal.url.includes("archive.org")) {
+            // Passive validation for complex CDNs and specific types
+            if (signal.url.includes("youtube.com") || 
+                signal.url.includes("youtu.be") || 
+                signal.url.includes("archive.org") || 
+                signal.url.includes("radio-browser") ||
+                signal.type === 'radio') {
                 return { ...signal, health: 'optimal' };
             }
 
-            const res = await fetchWithTimeout(signal.url, { method: 'HEAD' }, 5000).catch(() => null);
-            return { ...signal, health: (res && res.ok) ? 'optimal' : 'broken' };
-          } catch (e) {
+            // More permissive validation: Some servers block HEAD but allow GET
+            // For streams, we just check if it's reachable
+            const res = await fetchWithTimeout(signal.url, { method: 'GET', headers: { 'Range': 'bytes=0-1' } }, 4000).catch(() => null);
+            
+            if (res && (res.ok || res.status === 206)) {
+              return { ...signal, health: 'optimal' };
+            }
+
+            // Fallback for servers that block range requests
+            const headRes = await fetchWithTimeout(signal.url, { method: 'HEAD' }, 2000).catch(() => null);
+            if (headRes && headRes.ok) {
+              return { ...signal, health: 'optimal' };
+            }
+
+            // Default to 'stable' if we can't verify but it looks like a valid URL
+            if (signal.url.startsWith('http')) {
+               return { ...signal, health: 'stable' };
+            }
+
             return { ...signal, health: 'broken' };
+          } catch (e) {
+            return { ...signal, health: 'stable' };
           }
         })
       );
@@ -277,8 +299,16 @@ async function startServer() {
     }
   });
 
-  // SECURE PROXY: Implementation with Domain Filtering and Sanitization
-  app.get("/api/proxy", (req, res) => {
+  // SECURE PROXY: Improved implementation for Media Streams and Partial Content
+  app.all("/api/proxy", async (req, res) => {
+    // Handle pre-flight
+    if (req.method === 'OPTIONS') {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range, User-Agent, Referer, Accept-Encoding");
+      return res.sendStatus(204);
+    }
+
     const targetUrl = req.query.url as string;
     if (!targetUrl) return res.status(400).send("Missing target URL");
 
@@ -291,47 +321,78 @@ async function startServer() {
         return res.status(403).send("Prohibited destination");
       }
 
-      const requestOptions = {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-          "Accept": "*/*",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Referer": parsedUrl.origin
-        },
-        timeout: 15000
+      // ROBUST FETCHER WITH REDIRECT HANDLING
+      const forwardHeaders: Record<string, string> = {
+        "User-Agent": (req.headers["user-agent"] as string) || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Accept": (req.headers["accept"] as string) || "*/*",
+        "Referer": parsedUrl.origin
       };
 
+      if (req.headers["range"]) {
+        forwardHeaders["Range"] = req.headers["range"] as string;
+      }
+
+      // First, we perform a HEAD or a lightweight GET to follow redirects and get final URL
+      const initialRes = await fetch(targetUrl, {
+        method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+        headers: forwardHeaders,
+        redirect: 'follow'
+      }).catch(err => { throw err; });
+
+      const finalUrl = initialRes.url;
+      const finalParsedUrl = new URL(finalUrl);
+      const protocol = finalParsedUrl.protocol === 'https:' ? https : http;
+
       const proxyHandler = (proxyRes: http.IncomingMessage) => {
-        // Only stream specific allowed mime types if needed, but for discovery we preserve original content
+        // Proper status passthrough (crucial for 206 Partial Content)
         res.status(proxyRes.statusCode || 200);
         
-        // Sanitize headers
-        const blockedHeaders = ['access-control-allow-origin', 'content-security-policy', 'x-frame-options', 'set-cookie'];
+        const blockedHeaders = [
+          'access-control-allow-origin', 
+          'access-control-allow-credentials',
+          'access-control-allow-methods',
+          'access-control-allow-headers',
+          'content-security-policy', 
+          'x-frame-options', 
+          'set-cookie'
+        ];
+
         Object.entries(proxyRes.headers).forEach(([key, value]) => {
           if (!blockedHeaders.includes(key.toLowerCase()) && value) {
             res.setHeader(key, value);
           }
         });
 
+        // Forced CORS for development environment and media players
         res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range, User-Agent, Referer");
+        res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges, Content-Type");
+
         proxyRes.pipe(res);
       };
 
-      const protocol = parsedUrl.protocol === 'https:' ? https : http;
-      const proxyReq = protocol.get(targetUrl, requestOptions, proxyHandler);
+      const requestOptions = {
+        headers: forwardHeaders,
+        timeout: 30000,
+        rejectUnauthorized: false
+      };
+
+      const proxyReq = protocol.get(finalUrl, requestOptions, proxyHandler);
 
       proxyReq.on("error", (err) => {
-        console.error("[PROXY_ERROR]", err.message);
-        res.status(502).send("Gateway Error");
+        console.error("[\x1b[31mPROXY_ERROR\x1b[0m]", err.message, finalUrl);
+        if (!res.headersSent) res.status(502).send("Gateway Error: " + err.message);
       });
 
       proxyReq.on("timeout", () => {
         proxyReq.destroy();
-        res.status(504).send("Gateway Timeout");
+        if (!res.headersSent) res.status(504).send("Gateway Timeout");
       });
 
     } catch (e: any) {
-      res.status(400).send("Invalid URL configuration");
+      console.error("[\x1b[31mPROXY_PANIC\x1b[0m]", e.message, targetUrl);
+      if (!res.headersSent) res.status(400).send("Proxy Request Failed: " + e.message);
     }
   });
 
@@ -372,24 +433,19 @@ async function startServer() {
     try {
       const { query } = req.body;
       const languages = "English, Spanish, Japanese, Russian, Portuguese, Chinese, Arabic";
-      const prompt = `Translate the following query into the following languages: ${languages}. 
-      Return ONLY a valid JSON array of strings containing the translations, including the original query. Do not include markdown or explanations.
-      Query: "${query}"`;
+      const prompt = `Translate the following query into: ${languages}. 
+      Original Query: "${query}"`;
       
       const aiResponse = await generate({
         prompt: prompt,
-        systemInstruction: "You are a translation service. Return only a raw JSON array of strings.",
-        responseType: 'text',
-        temperature: 0.3
+        systemInstruction: "Translate the query. Return ONLY a JSON array of strings containing the translations including original.",
+        responseType: 'json',
+        temperature: 0.1
       });
       
-      let translations = [];
-      try {
-        const contentStr = typeof aiResponse === 'string' ? aiResponse : aiResponse.content || "";
-        const match = contentStr.match(/\[\s*".*"\s*\]/s);
-        const cleaned = match ? match[0] : contentStr.replace(/```json\n?|\n?```/g, '').trim();
-        translations = JSON.parse(cleaned);
-      } catch (e) {
+      let translations = aiResponse.content || [query];
+      
+      if (!Array.isArray(translations)) {
         translations = [query];
       }
       
@@ -413,7 +469,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

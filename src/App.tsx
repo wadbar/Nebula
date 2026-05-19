@@ -8,9 +8,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
-  Search, 
   Radio, 
   Video, 
   Globe, 
@@ -34,23 +33,16 @@ import {
   Lock,
   Clock,
   Cpu as CpuIcon,
-  Settings,
   Layers,
-  ArrowUpRight,
   RefreshCw,
   Fingerprint,
-  Unlink,
   ShieldCheck,
   List,
   Grid,
-  Map as MapIcon,
-  Navigation,
   SkipForward,
   SkipBack,
   Download,
   Link as LinkIcon,
-  Captions as SubtitlesIcon,
-  PlusSquare,
   Image as ImageIcon,
   FileText,
   Gamepad2,
@@ -67,13 +59,13 @@ import {
   Music,
   Headphones
 } from "lucide-react";
-import { motion, AnimatePresence, Reorder } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import Hls from "hls.js";
-import { APIProvider, Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-google-maps';
+import { APIProvider, Map } from '@vis.gl/react-google-maps';
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
 
-import { NodeLocation, DownloadTask, MediaResult, ValidationResult, LogEntry, Playlist } from './types';
+import { DownloadTask, MediaResult, ValidationResult, LogEntry, Playlist } from './types';
 const DARK_MAP_ID = "dark_network_v1";
 
 import { NetworkMap } from './components/NetworkMap';
@@ -86,12 +78,49 @@ const formatTime = (timeInSeconds: number) => {
   return `${m}:${s}`;
 };
 
+const resolveUrl = (base: string, relative: string) => {
+  if (relative.startsWith('http')) return relative;
+  try {
+    return new URL(relative, base).href;
+  } catch (e) {
+    return relative;
+  }
+};
+
+const RenderTextWithLinks = ({ text, className }: { text: string; className?: string }) => {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  
+  return (
+    <div className={className}>
+      {parts.map((part, i) => 
+        urlRegex.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-cyan hover:underline break-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </div>
+  );
+};
+
 const getProxyUrl = (url: string) => {
   if (!url) return '';
   if (url.startsWith('/api/proxy')) return url;
   if (url.includes('youtube.com') || url.includes('youtu.be')) return url;
   if (url.startsWith('https://docs.google.com/viewer')) return url;
-  return `/api/proxy?url=${encodeURIComponent(url)}`;
+  const finalUrl = url.startsWith('http') ? url : url; // Safety
+  return `/api/proxy?url=${encodeURIComponent(finalUrl)}`;
 };
 
 const getViewerUrl = (url: string) => {
@@ -107,7 +136,7 @@ const getViewerUrl = (url: string) => {
 /**
  * COMPONENT: SignalHealthBadge
  */
-const SignalHealthBadge = ({ health, type }: { health?: string, type?: string }) => {
+const SignalHealthBadge = ({ health }: { health?: string }) => {
   const isOnline = health !== 'broken';
   return (
     <div className={`flex gap-1 items-center bg-black/60 px-2 py-1 rounded text-[8px] font-black tracking-widest border border-white/5`}>
@@ -122,7 +151,6 @@ const SignalHealthBadge = ({ health, type }: { health?: string, type?: string })
  */
 const MatrixCard = React.memo(({ 
   item, 
-  idx, 
   isPlayingNow, 
   playMedia, 
   toggleFavorite, 
@@ -174,10 +202,16 @@ const MatrixCard = React.memo(({
            {item.name}
         </h4>
         <div className="flex items-center gap-2 mb-3 overflow-hidden">
-          <div className="text-[9px] text-brand-cyan/70 truncate flex-1 flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 shadow-inner font-mono">
+          <a 
+            href={item.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[9px] text-brand-cyan/70 truncate flex-1 flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 shadow-inner font-mono hover:text-brand-cyan hover:bg-brand-cyan/5 transition-all"
+          >
              <LinkIcon className="w-3 h-3 text-brand-cyan" />
              <span className="truncate">{item.url}</span>
-          </div>
+          </a>
         </div>
         <p className="text-[9px] text-white/40 line-clamp-1 mb-4 italic">{item.description}</p>
         <div className="flex items-center justify-between">
@@ -193,12 +227,16 @@ const MatrixCard = React.memo(({
             >
               <Star className={`w-3 h-3 ${isFavorite ? 'fill-current' : ''}`} />
             </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); playMedia(item); }}
+            <a 
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
               className="p-1 rounded bg-white/5 text-white/20 hover:text-brand-cyan hover:bg-brand-cyan/10 border border-white/5 transition-all"
+              title="Open Externally"
             >
               <ExternalLink className="w-3 h-3" />
-            </button>
+            </a>
           </div>
         </div>
     </motion.div>
@@ -216,7 +254,9 @@ const ListCard = React.memo(({
   toggleFavorite, 
   isFavorite, 
   handleDownload,
-  onHover 
+  onHover,
+  isSubtitleEnabled,
+  setIsSubtitleEnabled
 }: any) => {
   return (
     <motion.div
@@ -245,7 +285,7 @@ const ListCard = React.memo(({
       </div>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => playMedia(item)}>
          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <SignalHealthBadge health={item.health} type={item.type} />
+            <SignalHealthBadge health={item.health} />
             <div className="flex items-center gap-1 bg-black/40 px-1.5 py-0.5 rounded border border-white/5">
                 <span className="text-[8px] font-black text-brand-green uppercase tracking-tighter">Rel: {(item.relevance_score! * 100).toFixed(0)}%</span>
             </div>
@@ -259,10 +299,16 @@ const ListCard = React.memo(({
             {item.name}
           </h4>
           <div className="flex items-center gap-2 mt-2 overflow-hidden">
-            <div className="text-[10px] text-brand-cyan/70 truncate flex-1 flex items-center gap-2 bg-black/40 px-3 py-2 rounded-xl border border-white/10 font-mono">
+            <a 
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[10px] text-brand-cyan/70 truncate flex-1 flex items-center gap-2 bg-black/40 px-3 py-2 rounded-xl border border-white/10 font-mono hover:text-brand-cyan hover:bg-brand-cyan/5 transition-all"
+            >
                <LinkIcon className="w-4 h-4 text-brand-cyan" />
                <span className="truncate">{item.url}</span>
-            </div>
+            </a>
          </div>
       </div>
       <div className="flex items-center gap-2">
@@ -278,6 +324,13 @@ const ListCard = React.memo(({
         >
           <Download className="w-3.5 h-3.5" />
         </button>
+        <button 
+          onClick={() => setIsSubtitleEnabled(!isSubtitleEnabled)}
+          className={`p-2 rounded-xl transition-all ${isSubtitleEnabled ? 'text-brand-green bg-brand-green/20' : 'text-white/20 hover:text-white'}`}
+          title="Toggle Subtitles"
+        >
+          <Fingerprint className="w-3.5 h-3.5" />
+        </button>
         <div className="p-2 rounded-xl bg-white/5 text-white/20 group-hover:text-brand-green group-hover:bg-brand-green/10 transition-all cursor-pointer" onClick={() => playMedia(item)}>
           <Play className="w-3.5 h-3.5" />
         </div>
@@ -291,8 +344,22 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [results, setResults] = useState<MediaResult[]>([]);
-  const [favorites, setFavorites] = useState<MediaResult[]>([]);
-  const [history, setHistory] = useState<MediaResult[]>([]);
+  const [favorites, setFavorites] = useState<MediaResult[]>(() => {
+    const saved = localStorage.getItem('nebula_favorites');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [history, setHistory] = useState<MediaResult[]>(() => {
+    const saved = localStorage.getItem('nebula_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('nebula_favorites', JSON.stringify(favorites));
+  }, [favorites]);
+
+  useEffect(() => {
+    localStorage.setItem('nebula_history', JSON.stringify(history));
+  }, [history]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [downloads, setDownloads] = useState<DownloadTask[]>(() => {
     const saved = localStorage.getItem('nebula_downloads');
@@ -323,11 +390,33 @@ export default function App() {
   const [liveCamFPS, setLiveCamFPS] = useState('all');
   const [liveCamStatus, setLiveCamStatus] = useState('all');
 
+  const [activeTab, setActiveTab] = useState<"all" | "radio" | "audio" | "video" | "video_stream" | "tv" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "favorites" | "history" | "playlists">("all");
+
   const getFilteredResults = useCallback(() => {
     return results.filter(r => {
-      if (activeCategory !== "All" && r.type !== activeCategory) return false;
-      if (activeTab !== 'all' && r.type !== activeTab) return false;
-      if (activeCategory === 'live_cam' && r.type === 'live_cam') {
+      const normalizedType = r.type as string;
+      
+      // Category Level Filter
+      if (activeCategory !== "All" && normalizedType !== activeCategory) {
+        if (activeCategory === 'video' && !['video', 'video_stream', 'tv'].includes(normalizedType)) return false;
+        if (activeCategory === 'audio' && !['audio', 'audio_stream', 'radio'].includes(normalizedType)) return false;
+        if (activeCategory !== 'video' && activeCategory !== 'audio') return false;
+      }
+
+      // Tab Level Filter (Sub-view)
+      if (activeTab !== 'all') {
+        if (activeTab === 'favorites') return favorites.some(f => f.url === r.url);
+        if (activeTab === 'history') return history.some(h => h.url === r.url);
+        if (activeTab === 'playlists') return false;
+        
+        // Multi-type group tabs
+        if (activeTab === 'video' && !['video', 'video_stream', 'tv'].includes(normalizedType)) return false;
+        if (activeTab === 'radio' && !['radio', 'audio', 'audio_stream'].includes(normalizedType)) return false;
+        
+        if (!['video', 'radio'].includes(activeTab) && normalizedType !== activeTab) return false;
+      }
+
+      if (activeCategory === 'live_cam' && normalizedType === 'live_cam') {
         if (liveCamStatus !== 'all') {
            if (liveCamStatus === 'online' && r.health === 'broken') return false;
            if (liveCamStatus === 'offline' && r.health !== 'broken') return false;
@@ -337,7 +426,7 @@ export default function App() {
       }
       return true;
     });
-  }, [results, activeCategory, activeTab, liveCamStatus, liveCamFormat, liveCamFPS]);
+  }, [results, activeCategory, activeTab, liveCamStatus, liveCamFormat, liveCamFPS, favorites, history]);
 
   const categories = ["All", "video", "video_stream", "tv", "audio", "radio", "live_cam", "media", "image", "document", "book", "rom"];
   const categoryLabels: Record<string, string> = {
@@ -369,7 +458,7 @@ export default function App() {
     "rom": Gamepad2
   };
   const [currentMedia, setCurrentMedia] = useState<MediaResult | null>(null);
-  const [activeTab, setActiveTab] = useState<"all" | "radio" | "video" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "favorites" | "history" | "playlists">("all");
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
   const [eqPreset, setEqPreset] = useState<"flat" | "bass_boost" | "treble_boost" | "balanced">("flat");
@@ -678,8 +767,8 @@ export default function App() {
     }]);
   };
 
-  const handleSearch = async (e?: React.FormEvent, manualQuery?: string) => {
-    if (e) e.preventDefault();
+  const handleSearch = async (_e?: React.FormEvent, manualQuery?: string) => {
+    if (_e) _e.preventDefault();
     const finalQuery = manualQuery || query;
     if (!finalQuery) return;
     
@@ -717,11 +806,11 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: finalQuery }),
-        signal: searchController.current.signal
+        signal: searchController.current!.signal
       });
 
       for (let i = 0; i < steps.length; i++) {
-        if (searchController.current.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+        if (searchController.current!.signal.aborted) throw new DOMException('Aborted', 'AbortError');
         setScannerStep(i + 1);
         setScanProgress(((i + 1) / steps.length) * 100);
         addLog(`[CORE] ${steps[i]}`, i === steps.length - 1 ? "success" : "info");
@@ -744,7 +833,7 @@ export default function App() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ query: q, type: searchType, service: activeService }),
-            signal: searchController.current.signal
+            signal: searchController.current!.signal
           });
           if (response.ok) {
             const data = await response.json();
@@ -925,32 +1014,52 @@ export default function App() {
         videoRef.current.pause();
         videoRef.current.src = "";
       }
-      audio.crossOrigin = "anonymous";
-      audio.src = getProxyUrl(currentMedia.url);
-      audio.onloadedmetadata = () => {
+
+      const timerId = setTimeout(() => {
         if (!isSubscribed) return;
-        setStreamInfo(prev => ({
-          ...prev,
-          codec: 'Audio/MPEG',
-          bitrate: 'VBR/Constant'
-        }));
-      };
-      audio.onerror = () => {
-         if (!isSubscribed) return;
-         handleStreamError(currentMedia);
-      };
-      audio.onplay = () => {
-        if (!isSubscribed) return;
-        setIsReconnecting(false);
-        addLog(`[SUCCESS] Audio playback established: ${currentMedia.name}`, "success");
-      };
-      audio.play().catch(e => {
-        if (!isSubscribed) return;
-        console.error("Audio error", e);
-        handleStreamError(currentMedia);
-      });
+        
+        // Mandatory cleanup
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+        
+        audio.preload = "auto";
+        audio.crossOrigin = "anonymous";
+        audio.src = getProxyUrl(currentMedia.url);
+        
+        audio.onloadedmetadata = () => {
+          if (!isSubscribed) return;
+          setStreamInfo(prev => ({
+            ...prev,
+            codec: 'Audio/MPEG',
+            bitrate: 'VBR/Constant'
+          }));
+        };
+        audio.onerror = () => {
+           if (!isSubscribed) return;
+           console.error("[AUDIO_ERROR]", audio.error);
+           handleStreamError(currentMedia);
+        };
+        audio.onplay = () => {
+          if (!isSubscribed) return;
+          setIsReconnecting(false);
+          addLog(`[SUCCESS] Audio playback established: ${currentMedia.name}`, "success");
+        };
+        audio.play().catch(_e => {
+          if (!isSubscribed) return;
+          // Some browsers block autoplay even for audio
+          console.warn("Audio autoplay blocked, retrying muted...");
+          audio.muted = true;
+          audio.play().catch(_err => {
+            console.error("Critical audio fail", _err);
+            handleStreamError(currentMedia);
+          });
+        });
+      }, 100);
+
       return () => {
          isSubscribed = false;
+         clearTimeout(timerId);
          audio.pause();
          audio.src = "";
       };
@@ -979,28 +1088,45 @@ export default function App() {
             if (!videoRef.current || !isSubscribed) return;
             const video = videoRef.current;
             
-            if (Hls.isSupported() && currentMedia.url.includes('.m3u8')) {
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+
+            const isHls = currentMedia.url.includes('.m3u8') || currentMedia.type === 'video_stream' || currentMedia.type === 'tv' || currentMedia.type === 'live_cam';
+            
+            if (Hls.isSupported() && isHls) {
               const hls = new Hls({
                 autoStartLoad: true,
                 capLevelToPlayerSize: true,
-                manifestLoadingMaxRetry: 5, // agressive retries
-                levelLoadingMaxRetry: 5,
-                fragLoadingMaxRetry: 5,
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+                manifestLoadingMaxRetry: 15,
+                levelLoadingMaxRetry: 15,
+                fragLoadingMaxRetry: 15,
+                enableWorker: true,
                 xhrSetup: (xhr, url) => {
-                  xhr.open('GET', getProxyUrl(url), true);
+                  const resolvedUrl = resolveUrl(currentMedia.url, url);
+                  xhr.open('GET', getProxyUrl(resolvedUrl), true);
                 }
               });
-              hls.loadSource(currentMedia.url);
+              
+              const proxiedManifest = getProxyUrl(currentMedia.url);
+              hls.loadSource(proxiedManifest);
               hls.attachMedia(video);
+              
               hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (!isSubscribed) return;
                 applyQualityToHls(hls, streamQuality);
-                video.play().catch(e => {
-                  console.error("Playback error", e);
-                  handleStreamError(currentMedia);
+                video.play().catch(_e => {
+                  console.warn("Autoplay blocked, attempting silent start", _e);
+                  video.muted = true;
+                  video.play().catch(_err => {
+                    console.error("Critical playback fail", _err);
+                    handleStreamError(currentMedia);
+                  });
                 });
                 setIsReconnecting(false);
-                addLog(`[SUCCESS] Video stream loaded: ${currentMedia.name}`, "success");
+                addLog(`[CORE] Pipeline synchronized: ${currentMedia.name}`, "success");
               });
 
               hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
@@ -1016,7 +1142,7 @@ export default function App() {
                 }
               });
 
-              hls.on(Hls.Events.FRAG_BUFFERED, (_, data) => {
+              hls.on(Hls.Events.FRAG_BUFFERED, (_, _data) => {
                  if (!isSubscribed) return;
                  if (video) {
                     const buffered = video.buffered;
@@ -1027,12 +1153,19 @@ export default function App() {
                  }
               });
 
-              hls.on(Hls.Events.ERROR, (event, data) => {
+              hls.on(Hls.Events.ERROR, (_event, data) => {
                 if (!isSubscribed) return;
                 if (data.fatal) {
-                  handleStreamError(currentMedia);
-                  hls.destroy();
-                  hlsRef.current = null;
+                  console.error("[HLS_FATAL]", data);
+                  if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                    hls.startLoad();
+                  } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                    hls.recoverMediaError();
+                  } else {
+                    handleStreamError(currentMedia);
+                    hls.destroy();
+                    hlsRef.current = null;
+                  }
                 }
               });
 
@@ -1051,19 +1184,22 @@ export default function App() {
               video.onplay = () => {
                 if (!isSubscribed) return;
                 setIsReconnecting(false);
-                addLog(`[SUCCESS] Video playback established: ${currentMedia.name}`, "success");
+                addLog(`[SUCCESS] Feedback received: ${currentMedia.name}`, "success");
               };
               video.onerror = () => {
                  if (!isSubscribed) return;
+                 console.error("[VIDEO_ERROR]", video.error);
                  handleStreamError(currentMedia);
-              }
-              video.play().catch(e => {
+              };
+              video.play().catch(_e => {
                 if (!isSubscribed) return;
-                console.error("Playback error", e);
-                handleStreamError(currentMedia);
+                video.muted = true;
+                video.play().catch(_err => {
+                   handleStreamError(currentMedia);
+                });
               });
             }
-          }, 50);
+          }, 100);
           
           return () => {
              isSubscribed = false;
@@ -1536,18 +1672,6 @@ export default function App() {
     playMedia(nextMedia);
   };
 
-  const addToPlaylist = (playlistId: string, media: MediaResult) => {
-    setPlaylists(prev => prev.map(p => 
-      p.id === playlistId ? { ...p, items: [...p.items, media] } : p
-    ));
-    addLog(`Added ${media.name} to playlist`, "success");
-  };
-
-  const createPlaylist = (name: string) => {
-    setPlaylists(prev => [...prev, { id: Date.now().toString(), name, items: [] }]);
-    addLog(`Created playlist ${name}`, "success");
-  };
-
   const handlePause = () => {
     if (isPlaying) {
       const type = currentMedia?.type;
@@ -1636,13 +1760,13 @@ export default function App() {
       const type = currentMedia.type;
       
       if (type === 'radio' && audioRef.current) {
-        audioRef.current.play().catch(e => {
+        audioRef.current.play().catch(_e => {
           addLog("Error resuming audio stream.", "warn");
         });
       } else if ((type === 'video' || type === 'live_cam' || type === 'media') && videoRef.current) {
         // Only play if not YouTube
         if (!currentMedia.url.includes("youtube.com") && !currentMedia.url.includes("youtu.be")) {
-          videoRef.current.play().catch(e => {
+          videoRef.current.play().catch(_e => {
             addLog("Error resuming video stream.", "warn");
           });
         }
@@ -2153,6 +2277,8 @@ export default function App() {
                             if (val) hoverTimeoutRef.current = setTimeout(() => setHoveredMedia(val), 800);
                             else setHoveredMedia(null);
                           }}
+                          isSubtitleEnabled={isSubtitleEnabled}
+                          setIsSubtitleEnabled={setIsSubtitleEnabled}
                         />
                       ))
                     ) : (
@@ -2475,7 +2601,14 @@ export default function App() {
                               </div>
                               <div className="flex flex-col col-span-2 border-t border-white/5 pt-4">
                                 <span className="text-white/40 mb-1">SOURCE_NODE_HASH</span>
-                                <span className="truncate break-all opacity-60 text-[10px]">{currentMedia.url}</span>
+                                <a 
+                                  href={currentMedia.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="truncate break-all opacity-60 text-[10px] text-brand-cyan hover:opacity-100 transition-opacity underline decoration-brand-cyan/30"
+                                >
+                                  {currentMedia.url}
+                                </a>
                               </div>
                             </div>
                             
@@ -2667,9 +2800,7 @@ export default function App() {
                    ) : intelBrief ? (
                      <div className="flex gap-4 items-start">
                         <Lock className="w-4 h-4 text-brand-green shrink-0 mt-0.5" />
-                        <p className="text-[10px] text-white/60 leading-relaxed font-mono line-clamp-2 italic">
-                          {intelBrief}
-                        </p>
+                        <RenderTextWithLinks text={intelBrief} className="text-[10px] text-white/60 leading-relaxed font-mono line-clamp-2 italic" />
                      </div>
                    ) : (
                      <div className="flex items-center gap-3 opacity-30">
@@ -2848,7 +2979,7 @@ export default function App() {
                      ${log.type === 'security' ? 'text-brand-cyan' : ''}
                      ${log.type === 'info' ? 'text-white/60' : ''}
                    `}>
-                     {log.text}
+                     <RenderTextWithLinks text={log.text} />
                    </span>
                 </div>
               ))}
@@ -2915,7 +3046,7 @@ export default function App() {
           >
             <div className="h-44 bg-brand-green/5 relative flex items-center justify-center overflow-hidden group/prev">
                 <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent z-10" />
-                {hoveredMedia.type === 'video' || hoveredMedia.type === 'stream' ? (
+                {hoveredMedia.type === 'video' || hoveredMedia.type === 'video_stream' ? (
                   <Video className="w-12 h-12 text-brand-green/20 animate-pulse" />
                 ) : hoveredMedia.type === 'radio' ? (
                   <Radio className="w-12 h-12 text-brand-cyan/20 animate-pulse" />
@@ -3131,7 +3262,7 @@ export default function App() {
                             {log.role === 'user' ? <ChevronRight className="w-4 h-4" /> : <CpuIcon className="w-4 h-4" />}
                          </div>
                          <div className={`p-4 rounded-2xl border border-white/10 text-xs leading-relaxed terminal-text max-w-2xl ${log.role === 'user' ? 'bg-brand-green/5 text-white' : 'bg-white/5 text-white/80'}`}>
-                            {log.text}
+                            <RenderTextWithLinks text={log.text} />
                          </div>
                       </div>
                     ))}

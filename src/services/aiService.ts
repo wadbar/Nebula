@@ -4,8 +4,7 @@
  * Strategy: Circuit Breaking / Fallback via Provider Chain, Dynamic Plugin-like Discovery
  */
 
-import dotenv from "dotenv";
-dotenv.config();
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export interface GeneratorResponse {
   success: boolean;
@@ -23,11 +22,23 @@ interface Provider {
   failureCount: number;
 }
 
-const PROVIDER_TIMEOUT = 30000;
+const PROVIDER_TIMEOUT = 45000;
 const FAILURE_THRESHOLD = 3;
+
+// Lazy initialization of Gemini client to prevent crash if key is missing at start
+let genAI: GoogleGenerativeAI | null = null;
+const getGeminiClient = () => {
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
+    genAI = new GoogleGenerativeAI(apiKey);
+  }
+  return genAI;
+};
 
 // --- Sanitization Utils ---
 const sanitizeJson = (content: string): any => {
+  if (typeof content !== 'string') return content;
   let cleaned = content.replace(/```json\n?|\n?```/g, '').trim();
   
   // Try to find a JSON block if there's leading/trailing text
@@ -36,107 +47,119 @@ const sanitizeJson = (content: string): any => {
     cleaned = match[0];
   }
   
-  // Strip Google Search grounding citations like [1] or [1, 2] which break JSON parsing
+  // Strip citations that break JSON
   cleaned = cleaned.replace(/\[\d+(?:,\s*\d+)*\]/g, "");
   
   try {
     return JSON.parse(cleaned);
   } catch (e) {
     console.error("[AI_CORE] [JSON_PARSE_ERROR]", cleaned);
+    // If it's a list request but failed, return empty array instead of failing
+    if (cleaned.startsWith('[') || cleaned.endsWith(']')) return [];
     throw new Error("INVALID_JSON_FORMAT");
   }
 };
 
 // --- Provider Implementation ---
 
-const runOllama: Provider["run"] = async (prompt, system, type, temp, useSearch) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT);
-  
-  const res = await fetch(`${process.env.OLLAMA_HOST}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: process.env.OLLAMA_MODEL || 'llama3',
-      prompt: `${system}\n\n${prompt}`,
-      stream: false,
-      options: { temperature: temp },
-      format: type === 'json' ? 'json' : undefined
-    }),
-    signal: controller.signal
-  }).finally(() => clearTimeout(timeout));
-  
-  if (!res.ok) throw new Error(`API_ERROR_OLLAMA (${res.status})`);
-  const data = await res.json();
-  if (!data.response) throw new Error("INVALID_RESPONSE_STRUCTURE");
-  return data.response;
-};
-
 const runGemini: Provider["run"] = async (prompt, system, type, temp, useSearch) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT);
-  
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || 'gemini-3-flash-preview'}:generateContent?key=${process.env.GEMINI_API_KEY}`;
-  
-  const payload: any = {
-    contents: [{ parts: [{ text: `${system}\n\n${prompt}` }] }],
-    generationConfig: { temperature: temp }
-  };
-  
-  if (useSearch) {
-    payload.tools = [{ googleSearch: {} }];
-  } else if (type === 'json') {
-    payload.generationConfig.responseMimeType = "application/json";
-  }
+  const genAIClient = getGeminiClient();
+  if (!genAIClient) throw new Error("GEMINI_NOT_CONFIGURED");
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: controller.signal
-  }).finally(() => clearTimeout(timeout));
+  const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
   
-  if (!res.ok) throw new Error(`API_ERROR_GEMINI (${res.status})`);
-  const data = await res.json();
-  if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-    console.error("[GEMINI] Invalid Response:", JSON.stringify(data, null, 2));
+  const model = genAIClient.getGenerativeModel({ 
+    model: modelName,
+    systemInstruction: system,
+  });
+
+  const generationConfig = {
+    temperature: temp,
+    responseMimeType: (type === 'json' && !useSearch) ? "application/json" : "text/plain"
+  };
+
+  const tools = useSearch ? [{ googleSearchRetrieval: {} }] : undefined;
+
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig,
+    tools: tools as any
+  });
+
+  const response = await result.response;
+  const text = response.text();
+
+  if (!text) {
+    console.error("[GEMINI] Empty Response");
     throw new Error("INVALID_RESPONSE_STRUCTURE");
   }
-  return data.candidates[0].content.parts[0].text;
+
+  return text;
 };
 
-const runNvidia: Provider["run"] = async (prompt, system, type, temp, useSearch) => {
+const runOllama: Provider["run"] = async (prompt, system, type, temp, _useSearch) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT);
   
-  const res = await fetch(`${process.env.NVIDIA_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: process.env.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct',
-      messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
-      temperature: temp,
-      response_format: type === 'json' ? { type: 'json_object' } : undefined
-    }),
-    signal: controller.signal
-  }).finally(() => clearTimeout(timeout));
-  
-  if (!res.ok) throw new Error(`API_ERROR_NVIDIA (${res.status})`);
-  const data = await res.json();
-  if (!data.choices?.[0]?.message?.content) {
-    throw new Error("INVALID_RESPONSE_STRUCTURE");
+  try {
+    const res = await fetch(`${process.env.OLLAMA_HOST}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: process.env.OLLAMA_MODEL || 'llama3',
+        prompt: `System: ${system}\n\nUser: ${prompt}`,
+        stream: false,
+        options: { temperature: temp },
+        format: type === 'json' ? 'json' : undefined
+      }),
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeout));
+    
+    if (!res.ok) throw new Error(`API_ERROR_OLLAMA (${res.status})`);
+    const data = await res.json();
+    if (!data.response) throw new Error("INVALID_RESPONSE_STRUCTURE");
+    return data.response;
+  } catch (e: any) {
+    throw new Error(`OLLAMA_UNREACHABLE: ${e.message}`);
   }
-  return data.choices[0].message.content;
+};
+
+const runNvidia: Provider["run"] = async (prompt, system, type, temp, _useSearch) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT);
+  
+  try {
+    const res = await fetch(`${process.env.NVIDIA_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: process.env.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct',
+        messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
+        temperature: temp,
+        response_format: type === 'json' ? { type: 'json_object' } : undefined
+      }),
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeout));
+    
+    if (!res.ok) throw new Error(`API_ERROR_NVIDIA (${res.status})`);
+    const data = await res.json();
+    if (!data.choices?.[0]?.message?.content) {
+      throw new Error("INVALID_RESPONSE_STRUCTURE");
+    }
+    return data.choices[0].message.content;
+  } catch (e: any) {
+    throw new Error(`NVIDIA_UNREACHABLE: ${e.message}`);
+  }
 };
 
 // --- Core ---
 
 const providers: Provider[] = [
-  { name: 'ollama', run: runOllama, check: () => !!process.env.OLLAMA_HOST, isFailing: false, failureCount: 0 },
   { name: 'gemini', run: runGemini, check: () => !!process.env.GEMINI_API_KEY, isFailing: false, failureCount: 0 },
+  { name: 'ollama', run: runOllama, check: () => !!process.env.OLLAMA_HOST, isFailing: false, failureCount: 0 },
   { name: 'nvidia', run: runNvidia, check: () => !!process.env.NVIDIA_API_KEY && !!process.env.NVIDIA_BASE_URL, isFailing: false, failureCount: 0 }
 ];
 
@@ -154,30 +177,29 @@ export async function generate({
   useSearch?: boolean;
 }): Promise<GeneratorResponse> {
   const errors: Record<string, any> = {};
+  
+  // Re-check check status to handle dynamic env changes in dev
+  const activeProviders = providers.filter(p => !p.isFailing && p.check());
 
-  for (const provider of providers) {
-    if (provider.isFailing) {
-        console.warn(`[AI_CORE] [${new Date().toISOString()}] Circuit Breaker active for ${provider.name.toUpperCase()}. Skipping.`);
-        continue;
-    }
+  if (activeProviders.length === 0) {
+    const providerStatus = providers.map(p => `${p.name}: ${p.check() ? 'READY' : 'MISCONFIGURED'}${p.isFailing ? ' (FAILED)' : ''}`).join(', ');
+    console.error(`[AI_CORE] No active providers. Status: ${providerStatus}`);
+    throw new Error(`ALL_AI_PROVIDERS_OFFLINE: ${providerStatus}`);
+  }
 
-    if (!provider.check()) {
-        console.log(`[AI_CORE] [${new Date().toISOString()}] Skipping ${provider.name.toUpperCase()} (not configured)`);
-        continue;
-    }
-      
-    console.log(`[AI_CORE] [${new Date().toISOString()}] Attempting: ${provider.name.toUpperCase()}...`);
+  for (const provider of activeProviders) {
+    console.log(`[AI_CORE] Attempting: ${provider.name.toUpperCase()}...`);
       
     try {
       const rawResult = await provider.run(prompt, systemInstruction, responseType, temperature, useSearch);
       const content = responseType === 'json' ? sanitizeJson(rawResult) : rawResult;
       
-      provider.failureCount = 0; // Reset on success
+      provider.failureCount = 0;
 
       return {
         success: true,
         provider: provider.name,
-        model: process.env[`${provider.name.toUpperCase()}_MODEL`] || 'unknown',
+        model: process.env[`${provider.name.toUpperCase()}_MODEL`] || 'dynamic',
         content: content,
         timestamp: new Date().toISOString()
       };
@@ -185,15 +207,15 @@ export async function generate({
       provider.failureCount++;
       if (provider.failureCount >= FAILURE_THRESHOLD) {
           provider.isFailing = true;
-          console.error(`[AI_CORE] [${new Date().toISOString()}] Provider ${provider.name.toUpperCase()} tripped Circuit Breaker after ${provider.failureCount} failures.`);
+          console.error(`[AI_CORE] Circuit Breaker for ${provider.name.toUpperCase()}`);
       }
 
       errors[provider.name] = err.message;
-      console.error(`[AI_CORE] [${new Date().toISOString()}] ${provider.name.toUpperCase()} error: ${err.message}`);
+      console.error(`[AI_CORE] ${provider.name.toUpperCase()} fail: ${err.message}`);
     }
   }
 
-  console.error("[AI_CORE] All AI providers offline or skipped. Errors:", errors);
-  throw new Error(`ALL_AI_PROVIDERS_OFFLINE: ${JSON.stringify(errors)}`);
+  throw new Error(`ALL_AI_PROVIDERS_FAILED: ${JSON.stringify(errors)}`);
 }
+
 

@@ -9,7 +9,8 @@ export interface NodeLocation {
 export interface MediaResult {
   name: string;
   url: string;
-  type: "radio" | "video" | "live_cam" | "media" | "image" | "document" | "rom" | "book";
+  type: "radio" | "audio" | "video" | "video_stream" | "tv" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "audio_stream";
+  service?: string;
   category?: string;
   description: string;
   tags: string[];
