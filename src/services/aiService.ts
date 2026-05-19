@@ -1,6 +1,6 @@
 /**
- * NEBULA_OS_AI_KERNEL_V4
- * Purpose: Universal, agnostic, resilient AI invocation engine (ESM)
+ * NEBULA_OS_AI_CORE_V4
+ * Purpose: Universal, agnostic, robust AI invocation service (ESM)
  * Strategy: Circuit Breaking / Fallback via Provider Chain, Dynamic Plugin-like Discovery
  */
 
@@ -42,7 +42,7 @@ const sanitizeJson = (content: string): any => {
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    console.error("[AI_KERNEL] [JSON_PARSE_ERROR]", cleaned);
+    console.error("[AI_CORE] [JSON_PARSE_ERROR]", cleaned);
     throw new Error("INVALID_JSON_FORMAT");
   }
 };
@@ -76,7 +76,7 @@ const runGemini: Provider["run"] = async (prompt, system, type, temp, useSearch)
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT);
   
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || 'gemini-1.5-pro'}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || 'gemini-3-flash-preview'}:generateContent?key=${process.env.GEMINI_API_KEY}`;
   
   const payload: any = {
     contents: [{ parts: [{ text: `${system}\n\n${prompt}` }] }],
@@ -132,7 +132,7 @@ const runNvidia: Provider["run"] = async (prompt, system, type, temp, useSearch)
   return data.choices[0].message.content;
 };
 
-// --- Kernel ---
+// --- Core ---
 
 const providers: Provider[] = [
   { name: 'ollama', run: runOllama, check: () => !!process.env.OLLAMA_HOST, isFailing: false, failureCount: 0 },
@@ -157,16 +157,16 @@ export async function generate({
 
   for (const provider of providers) {
     if (provider.isFailing) {
-        console.warn(`[AI_KERNEL] [${new Date().toISOString()}] Circuit Breaker active for ${provider.name.toUpperCase()}. Skipping.`);
+        console.warn(`[AI_CORE] [${new Date().toISOString()}] Circuit Breaker active for ${provider.name.toUpperCase()}. Skipping.`);
         continue;
     }
 
     if (!provider.check()) {
-        console.log(`[AI_KERNEL] [${new Date().toISOString()}] Skipping ${provider.name.toUpperCase()} (not configured)`);
+        console.log(`[AI_CORE] [${new Date().toISOString()}] Skipping ${provider.name.toUpperCase()} (not configured)`);
         continue;
     }
       
-    console.log(`[AI_KERNEL] [${new Date().toISOString()}] Attempting: ${provider.name.toUpperCase()}...`);
+    console.log(`[AI_CORE] [${new Date().toISOString()}] Attempting: ${provider.name.toUpperCase()}...`);
       
     try {
       const rawResult = await provider.run(prompt, systemInstruction, responseType, temperature, useSearch);
@@ -185,14 +185,15 @@ export async function generate({
       provider.failureCount++;
       if (provider.failureCount >= FAILURE_THRESHOLD) {
           provider.isFailing = true;
-          console.error(`[AI_KERNEL] [${new Date().toISOString()}] Provider ${provider.name.toUpperCase()} tripped Circuit Breaker after ${provider.failureCount} failures.`);
+          console.error(`[AI_CORE] [${new Date().toISOString()}] Provider ${provider.name.toUpperCase()} tripped Circuit Breaker after ${provider.failureCount} failures.`);
       }
 
       errors[provider.name] = err.message;
-      console.error(`[AI_KERNEL] [${new Date().toISOString()}] ${provider.name.toUpperCase()} error: ${err.message}`);
+      console.error(`[AI_CORE] [${new Date().toISOString()}] ${provider.name.toUpperCase()} error: ${err.message}`);
     }
   }
 
+  console.error("[AI_CORE] All AI providers offline or skipped. Errors:", errors);
   throw new Error(`ALL_AI_PROVIDERS_OFFLINE: ${JSON.stringify(errors)}`);
 }
 
