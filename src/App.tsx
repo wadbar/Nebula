@@ -59,7 +59,8 @@ import {
   Headphones,
   TrendingUp,
   Search,
-  ListPlus
+  ListPlus,
+  Compass
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Hls from "hls.js";
@@ -71,6 +72,7 @@ import { DownloadTask, MediaResult, ValidationResult, LogEntry, Playlist } from 
 const DARK_MAP_ID = "dark_network_v1";
 
 import { NetworkMap } from './components/NetworkMap';
+import { DiscoverView } from './components/DiscoverView';
 import { PlaylistViewer } from './components/PlaylistViewer';
 import { DownloadManager } from './components/DownloadManager';
 
@@ -592,7 +594,7 @@ export default function App() {
   const [searchFilterService, setSearchFilterService] = useState('all');
   const [searchFilterRelevance, setSearchFilterRelevance] = useState('all');
 
-  const [activeTab, setActiveTab] = useState<"all" | "radio" | "audio" | "video" | "video_stream" | "tv" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "favorites" | "history" | "playlists">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "radio" | "audio" | "video" | "video_stream" | "tv" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "favorites" | "history" | "playlists" | "discover">("discover");
 
   const getFilteredResults = useCallback(() => {
     return results.filter(r => {
@@ -687,7 +689,15 @@ export default function App() {
   const [currentMedia, setCurrentMedia] = useState<MediaResult | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.5);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem('nebula_volume');
+    return saved ? parseFloat(saved) : 0.5;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('nebula_volume', volume.toString());
+  }, [volume]);
   const [eqPreset, setEqPreset] = useState<"flat" | "bass_boost" | "treble_boost" | "balanced">("flat");
   const [showTerminal, setShowTerminal] = useState(false);
   const [terminalInput, setTerminalInput] = useState("");
@@ -1158,7 +1168,28 @@ export default function App() {
     if (videoRef.current) videoRef.current.volume = volume;
   }, [volume]);
 
+  // Sync playback speed
   // Simulated live security logs
+  useEffect(() => {
+    if (!currentMedia) return;
+    const key = `nebula_pos_${currentMedia.url}`;
+    const saved = localStorage.getItem(key);
+    if(saved && videoRef.current) {
+        videoRef.current.currentTime = parseFloat(saved);
+    }
+  }, [currentMedia]);
+
+  // Save time every 5 seconds
+  useEffect(() => {
+    if (!currentMedia) return;
+    const interval = setInterval(() => {
+        if(videoRef.current) {
+             localStorage.setItem(`nebula_pos_${currentMedia.url}`, videoRef.current.currentTime.toString());
+        }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [currentMedia]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (Math.random() > 0.7) {
@@ -2192,6 +2223,14 @@ export default function App() {
       }
       
       switch (e.code) {
+        case 'KeyF':
+          e.preventDefault();
+          handleFullscreen();
+          break;
+        case 'KeyM':
+          e.preventDefault();
+          setVolume(prev => prev === 0 ? 0.5 : 0);
+          break;
         case 'Space':
           e.preventDefault();
           handleTogglePlayback();
@@ -2471,6 +2510,7 @@ export default function App() {
             <div className="space-y-2">
               {[
                 { id: 'all', icon:Globe, label: 'GLOBAL NETWORK' },
+                { id: 'discover', icon:Compass, label: 'DISCOVER_SYNC' },
                 { id: 'radio', icon:Radio, label: 'AUDIO / RADIO' },
                 { id: 'video', icon:Video, label: 'VIDEO / MOTION' },
                 { id: 'live_cam', icon:Monitor, label: 'LIVE FEED / CAMS' },
@@ -2875,6 +2915,8 @@ export default function App() {
                 addLog={addLog}
                 setActivePlaylistId={setActivePlaylistId}
               />
+            ) : activeTab === 'discover' ? (
+              <DiscoverView playMedia={playMedia} />
             ) : viewMode === 'matrix' && results.length > 0 && activeTab !== 'favorites' && activeTab !== 'history' ? (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-max px-1">
@@ -3061,18 +3103,26 @@ export default function App() {
              title={currentMedia.name} 
            />
         ) : (
-          <div id="video-container" className="relative w-full h-full group overflow-hidden flex items-center justify-center bg-black">
+          <div ref={mediaContainerRef} id="video-container" className="relative w-full h-full group overflow-hidden flex items-center justify-center bg-black">
             <video 
               ref={videoRef} 
               onEnded={() => setIsPlaying(false)}
               onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
               onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+              onWaiting={() => setIsBuffering(true)}
+              onPlaying={() => setIsBuffering(false)}
+              onCanPlay={() => setIsBuffering(false)}
               className={`max-h-full max-w-full transition-opacity duration-700 ${isReconnecting ? 'opacity-20' : 'opacity-100'}`} 
               controls={false} 
               muted={false} 
             />
+            {isBuffering && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-30">
+                    <div className="w-10 h-10 border-4 border-brand-green border-t-transparent rounded-full animate-spin"></div>
+                </div>
+            )}
             {currentMedia && (
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col gap-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
                 {['video', 'video_stream', 'tv', 'live_cam', 'media'].includes(currentMedia.type) && (
                   <div className="flex justify-between items-end mb-2">
                      <div className="flex bg-black/60 backdrop-blur border border-white/10 rounded-lg p-1 text-[8px] font-black uppercase overflow-hidden">
