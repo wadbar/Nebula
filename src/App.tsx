@@ -855,6 +855,54 @@ export default function App() {
   const [opensearchWeightBoost, setOpensearchWeightBoost] = useState<number>(1.5);
   const [torchProxyActive, setTorchProxyActive] = useState<boolean>(true);
 
+  // Keyboard Shortcut Handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in a search bar or shortcut manager
+      if (
+        (e.target as HTMLElement).tagName === 'INPUT' || 
+        (e.target as HTMLElement).tagName === 'TEXTAREA' ||
+        showShortcutModal
+      ) return;
+
+      const shortcut = shortcuts.find(s => s.currentCode === e.code);
+      if (!shortcut) return;
+
+      e.preventDefault();
+
+      switch (shortcut.id) {
+        case 'toggle_playback':
+          setIsPlaying(!isPlaying);
+          break;
+        case 'mute':
+          setVolume(prev => prev === 0 ? 0.5 : 0);
+          break;
+        case 'volume_up':
+          setVolume(prev => Math.min(1, prev + 0.1));
+          break;
+        case 'volume_down':
+          setVolume(prev => Math.max(0, prev - 0.1));
+          break;
+        case 'seek_forward':
+          if (videoRef.current) videoRef.current.currentTime += 10;
+          if (audioRef.current) audioRef.current.currentTime += 10;
+          break;
+        case 'seek_backward':
+          if (videoRef.current) videoRef.current.currentTime -= 10;
+          if (audioRef.current) audioRef.current.currentTime -= 10;
+          break;
+        case 'fullscreen':
+          if (document.fullscreenElement) document.exitFullscreen();
+          else mediaContainerRef.current?.requestFullscreen();
+          break;
+        // Navigation shortcuts could be here too
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [shortcuts, isPlaying, volume]);
+
   // Georeference and Cascading Filter States
   const [isGeoLocked, setIsGeoLocked] = useState<boolean>(() => {
     const saved = localStorage.getItem('nebula_geolocked');

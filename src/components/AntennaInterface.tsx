@@ -403,15 +403,6 @@ export default function AntennaInterface() {
     drawRow();
   };
 
-  // Convert dBm value into qualitative S-meter reading definition
-  const getSMeterReading = () => {
-    if (signalStrength <= -110) return "S1  (Deep Carrier Noise)";
-    if (signalStrength <= -95) return "S3  (Faint Signal)";
-    if (signalStrength <= -85) return "S5  (Readable/Noised)";
-    if (signalStrength <= -70) return "S7  (Stable Connection)";
-    if (signalStrength <= -55) return "S9  (Optimum Broadcast)";
-    return `S9+${Math.round((-55 - signalStrength) * -1)}dB (SDR Saturation)`;
-  };
 
   return (
     <div className="flex flex-col gap-6 font-mono text-xs text-white/90 animate-[fadeIn_0.5s_ease-out]">

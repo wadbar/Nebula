@@ -1,6 +1,27 @@
 import { useState, useEffect } from 'react';
-import { Wifi, Compass, Orbit, RefreshCw, Shield, ShieldCheck, Search, EyeOff, Trash2 } from 'lucide-react';
+import { Wifi, Compass, Orbit, RefreshCw, Shield, ShieldCheck, EyeOff, Trash2 } from 'lucide-react';
 import { GEO_HUBS, GeoHub } from '../utils/geo';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+
+// Fix default leaflet marker icon
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+function LocationMarker({ userCoords, setUserCoords, addLog }: any) {
+  useMapEvents({
+    click(e) {
+      const { lat, lng } = e.latlng;
+      setUserCoords({ lat, lng });
+      addLog(`[GEOLOCATION] Simulated coordinate lock: ${lat.toFixed(4)}, ${lng.toFixed(4)}`, "success");
+    },
+  });
+  return <Marker position={[userCoords.lat, userCoords.lng]} />;
+}
 
 const getLocalLandmarks = (lat: number, lng: number, city?: string, state?: string): { landmark: string; altitude: number; description: string } => {
   const cNorm = (city || "").toLowerCase();
@@ -88,21 +109,12 @@ export default function GeoSearchController({
   addLog
 }: GeoSearchControllerProps) {
   const [loadingGps, setLoadingGps] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Custom manual inputs for arbitrary fictional locations
-  const [customCity, setCustomCity] = useState('');
-  const [customCountry, setCustomCountry] = useState('');
-  const [customLat, setCustomLat] = useState('');
-  const [customLng, setCustomLng] = useState('');
-  
+  // Custom manual inputs for arbitrary fictional locations removed
   // Stealth mode (when unlocked/totally private)
   const [isStealthActive, setIsStealthActive] = useState<boolean>(() => {
     const saved = localStorage.getItem('nebula_stealth_mode');
     return saved ? JSON.parse(saved) : false;
   });
-
-  const [activeTabSub, setActiveTabSub] = useState<'search' | 'custom'>('search');
 
   // Extended resolved geodesy data
   const [resolvedGeoDetails, setResolvedGeoDetails] = useState<{
@@ -248,26 +260,28 @@ export default function GeoSearchController({
   }, [isStealthActive, isGeoLocked]);
 
   // Trigger real browser Geolocation API
-  const triggerGpsLookup = () => {
+  const triggerGpsLookup = async () => {
     if (isStealthActive) {
       setIsStealthActive(false);
       addLog("[PRIVACY] Stealth Mode desativado automaticamente para permitir geolocalização do hardware.", "info");
     }
 
     if (!navigator.geolocation) {
-      addLog("[GEOLOCATION] Geolocation API not supported by browser. Falling back to default relay.", "warn");
+      addLog("[GEOLOCATION] Geolocation API not supported by browser.", "warn");
       return;
     }
 
     setLoadingGps(true);
-    addLog("[GEOLOCATION] Initializing satellite signal geolocation query...", "info");
+    addLog("[GEOLOCATION] Initializing hardware sensor array...", "info");
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
+        
+        // Update coordinates and force UI sync
         setUserCoords({ lat: latitude, lng: longitude });
 
-        // Find the closest GEO_HUB based on coordinates
+        // Update hub based on coordinates
         let closestHub = GEO_HUBS[0];
         let minDistance = parseFloat('Infinity');
 
@@ -284,7 +298,7 @@ export default function GeoSearchController({
         };
 
         GEO_HUBS.forEach((hub) => {
-          if (hub.isSpace) return; // skip space nodes for Earth proximity
+          if (hub.isSpace) return;
           const dist = calculateDistance(latitude, longitude, hub.lat, hub.lng);
           if (dist < minDistance) {
             minDistance = dist;
@@ -294,59 +308,25 @@ export default function GeoSearchController({
 
         setUserHub({
           ...closestHub,
-          city: "Dispositivo Local",
-          state: "GPS Resolvido",
           lat: latitude,
           lng: longitude
         });
+        
+        setIsGeoLocked(false); // Unlock to let resolution take over if needed or keep locked based on preference; user expects GPS, so we unlock or keep locked? Let's keep it locked for consistency if user wants to keep the location
+        setIsGeoLocked(true); 
 
-        addLog(`[GEOLOCATION] Lat/Lng resolved: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}. Proximal Gateway: ${closestHub.city}`, "success");
+        addLog(`[GEOLOCATION] SUCCESS: [${latitude.toFixed(4)}, ${longitude.toFixed(4)}] cached at [${closestHub.city}]`, "success");
         setLoadingGps(false);
       },
       (error) => {
-        console.error(error);
-        addLog(`[GEOLOCATION] Signal lookup blocked: ${error.message}. Resolving from global fallback node [São Paulo]`, "warn");
+        addLog(`[GEOLOCATION] ERROR: ${error.message}`, "warn");
         setLoadingGps(false);
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
-  const handleSelectPresetHub = (hub: GeoHub) => {
-    setUserHub(hub);
-    setUserCoords({ lat: hub.lat, lng: hub.lng });
-    setIsGeoLocked(true); // Auto-lock when selecting a mock hub
-    addLog(`[GEOLOCATION] Mock Location Blocked on: ${hub.name} (${hub.lat.toFixed(4)}, ${hub.lng.toFixed(4)})`, "success");
-  };
 
-  // Lock down state based on completely customized fictional coordinates
-  const handleLockCustomFictional = (e: React.FormEvent) => {
-    e.preventDefault();
-    const latNum = parseFloat(customLat);
-    const lngNum = parseFloat(customLng);
-
-    if (isNaN(latNum) || isNaN(lngNum)) {
-      addLog("[GEOLOCATION] Invalid coordinates parsed. Use standard decimals (e.g. Lat: -23.55, Lng: -46.63)", "warn");
-      return;
-    }
-
-    const customHub: GeoHub = {
-      name: `Custom Mock: ${customCity || 'Isolated Node'}`,
-      city: customCity || 'Sinal Camuflado',
-      state: 'Local Camuflado',
-      country: customCountry || 'Unknown Coordinates',
-      continent: 'Camuflagem Digital',
-      hemisphere: latNum >= 0 ? 'Northern' : 'Southern',
-      isSpace: false,
-      lat: latNum,
-      lng: lngNum
-    };
-
-    setUserHub(customHub);
-    setUserCoords({ lat: latNum, lng: lngNum });
-    setIsGeoLocked(true);
-    addLog(`[GEOLOCATION] Advanced privacy shield: Locked fictional coordinates on ${customHub.city} [${latNum.toFixed(4)}, ${lngNum.toFixed(4)}]`, "success");
-  };
 
   // Complete cleanup / Untraceable mode transition
   const handlePurgeAllTracks = () => {
@@ -363,10 +343,6 @@ export default function GeoSearchController({
       lat: 0,
       lng: 0
     });
-    setCustomCity('');
-    setCustomCountry('');
-    setCustomLat('');
-    setCustomLng('');
     setIsStealthActive(true);
     addLog("[PRIVACY] Zero-Trace mode engaged! All localized databases, browser tracks, and GPS cached values purged successfully.", "security");
   };
@@ -380,13 +356,6 @@ export default function GeoSearchController({
     { id: 'planeta', label: '6. PLANETA TERRA', minPing: '160-350ms', desc: 'Desbloqueia ping intercontinental global' },
     { id: 'espaco', label: '7. ESTAÇÕES ESPACIAIS', minPing: '350-1200ms', desc: 'Habilita datacenters orbitais futuros' }
   ];
-
-  // Filter GEO_HUBS based on query
-  const filteredHubs = GEO_HUBS.filter(h => 
-    h.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    h.country.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    h.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div className="bento-card p-5 bg-gradient-to-b from-[#0a0a0d] to-[#040406] border border-white/5 hover:border-brand-green/20 transition-all font-mono rounded-2xl relative overflow-hidden group">
@@ -481,120 +450,38 @@ export default function GeoSearchController({
         {/* LEFT COLUMN: FICTIONAL COUPLER FORM */}
         <div className="lg:col-span-4 flex flex-col gap-4">
           <div className="bg-white/[0.01] border border-white/5 p-4 rounded-xl space-y-4">
-            <div className="flex border-b border-white/5 mb-1 bg-black/40 p-1 rounded-lg">
-              <button
-                type="button"
-                onClick={() => setActiveTabSub('search')}
-                className={`flex-1 py-1.5 rounded text-[8.5px] uppercase font-black tracking-widest text-center transition-all cursor-pointer ${activeTabSub === 'search' ? 'bg-brand-green/10 text-brand-green font-extrabold' : 'text-white/40 hover:text-white'}`}
-              >
-                Buscar Presets
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTabSub('custom')}
-                className={`flex-1 py-1.5 rounded text-[8.5px] uppercase font-black tracking-widest text-center transition-all cursor-pointer ${activeTabSub === 'custom' ? 'bg-brand-cyan/10 text-brand-cyan font-extrabold' : 'text-white/40 hover:text-white'}`}
-              >
-                Input Coordenadas
-              </button>
-            </div>
-
-            {activeTabSub === 'search' ? (
-              <div className="space-y-3">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-white/30" />
-                  <input
-                    type="text"
-                    placeholder="Filtrar cidades / continentes..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-black/50 border border-white/10 rounded-lg pl-8 pr-3 py-2 text-[10px] uppercase text-white placeholder-white/30 focus:outline-none focus:border-brand-green/30"
+            <div className="space-y-4">
+              <span className="text-[9px] font-black text-white/50 uppercase tracking-widest ">Seletor de Localização (Mapa)</span>
+              
+              <div className="h-40 rounded-lg overflow-hidden border border-white/10 group-hover:border-brand-green/30 transition-all">
+                <MapContainer center={[userCoords.lat, userCoords.lng]} zoom={4} className="h-full w-full">
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   />
-                </div>
-
-                <div className="max-h-52 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                  {filteredHubs.length === 0 ? (
-                    <div className="text-[9px] text-white/30 text-center py-6">Nenhum servidor encontrado.</div>
-                  ) : (
-                    filteredHubs.map((hub) => (
-                      <button
-                        key={hub.name}
-                        onClick={() => handleSelectPresetHub(hub)}
-                        className={`w-full text-left p-2 rounded-lg border text-[9px] transition-all flex items-center justify-between cursor-pointer ${
-                          userHub.city === hub.city 
-                            ? 'bg-brand-green/5 border-brand-green/30 text-brand-green font-bold' 
-                            : 'bg-white/[0.01] border-white/5 hover:bg-white/[0.04] text-white/60 hover:text-white'
-                        }`}
-                      >
-                        <div className="flex flex-col truncate">
-                          <span className="font-extrabold uppercase">{hub.city}</span>
-                          <span className="text-[7.5px] text-white/40 tracking-wider font-semibold">{hub.country}</span>
-                        </div>
-                        <div className="text-[8px] text-white/30 text-right shrink-0">
-                          {hub.lat.toFixed(1)}, {hub.lng.toFixed(1)}
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
+                  <LocationMarker userCoords={userCoords} setUserCoords={setUserCoords} addLog={addLog} />
+                </MapContainer>
               </div>
-            ) : (
-              <form onSubmit={handleLockCustomFictional} className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-[8px] text-white/40 uppercase block">LATITUDE DECIMAL</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: -23.5505"
-                      value={customLat}
-                      onChange={(e) => setCustomLat(e.target.value)}
-                      className="w-full bg-black/60 border border-white/10 rounded-lg p-2 text-[10px] text-white focus:outline-none focus:border-brand-cyan/40 font-mono"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] text-white/40 uppercase block">LONGITUDE DECIMAL</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: -46.6333"
-                      value={customLng}
-                      onChange={(e) => setCustomLng(e.target.value)}
-                      className="w-full bg-black/60 border border-white/10 rounded-lg p-2 text-[10px] text-white focus:outline-none focus:border-brand-cyan/40 font-mono"
-                      required
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-[8px] text-white/40 uppercase block">CIDADE FICTÍCIA</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: São Paulo"
-                      value={customCity}
-                      onChange={(e) => setCustomCity(e.target.value)}
-                      className="w-full bg-black/60 border border-white/10 rounded-lg p-2 text-[10px] text-white uppercase focus:outline-none focus:border-brand-cyan/40"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] text-white/40 uppercase block">PAÍS / REGING</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Brasil"
-                      value={customCountry}
-                      onChange={(e) => setCustomCountry(e.target.value)}
-                      className="w-full bg-black/60 border border-white/10 rounded-lg p-2 text-[10px] text-white uppercase focus:outline-none focus:border-brand-cyan/40"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2 bg-brand-cyan/15 hover:bg-brand-cyan/25 text-brand-cyan hover:text-white border border-brand-cyan/30 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-center cursor-pointer font-sans"
-                >
-                  LOCK COORDENADA EXTRAORDINÁRIA
-                </button>
-              </form>
-            )}
+              <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Presets Rápidos</span>
+                {GEO_HUBS.map((hub) => (
+                    <button
+                        key={hub.name}
+                        onClick={() => {
+                            setUserHub(hub);
+                            setUserCoords({ lat: hub.lat, lng: hub.lng });
+                            setIsGeoLocked(true);
+                            addLog(`[GEOLOCATION] Localização travada em: ${hub.name}`, "success");
+                        }}
+                        className="w-full text-left p-1.5 rounded-lg border border-white/5 bg-white/[0.01] hover:bg-white/[0.05] text-[9px] text-white/60 transition-all flex justify-between"
+                    >
+                        <span>{hub.city}</span>
+                        <span className="text-white/30">{hub.country}</span>
+                    </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 

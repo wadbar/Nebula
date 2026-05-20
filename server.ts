@@ -123,6 +123,8 @@ async function startServer() {
   app.use(express.json({ limit: "5mb" }));
   app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
+  app.set("trust proxy", 1);
+
   // Middleware de Rastreabilidade (Trace ID)
   app.use((req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
     const traceId = uuidv4();
@@ -162,6 +164,16 @@ async function startServer() {
   // ============================================================================
   // COMPONENTES DE ROTAS DE BACKEND
   // ============================================================================
+
+  // Health check endpoint for precise monitoring
+  app.get("/api/health", (_req, res) => {
+    res.json({
+      status: "operational",
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      memory: process.memoryUsage()
+    });
+  });
 
   const discoverLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, 
