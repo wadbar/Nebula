@@ -534,15 +534,68 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
   app.post("/api/intel", async (req: ExpressRequest, res: ExpressResponse) => {
     try {
       const { signal } = req.body;
+      if (!signal || typeof signal !== "object") {
+         return res.status(400).json({ error: "SUJEITO_SINAL_INVALIDO" });
+      }
+
+      Logger.info("FORENSE", `Executando análise de inteligência profunda para o nó: ${signal.id || 'N/A'} - ${signal.name}`);
+
+      // Extract details for the generator prompt to analyze
+      const queryContext = {
+        name: signal.name,
+        url: signal.url,
+        type: signal.type,
+        category: signal.category,
+        description: signal.description,
+        service: signal.service,
+        relevance_score: signal.relevance_score,
+        health: signal.health,
+        metadata: signal.metadata || {}
+      };
+
+      const prompt = `REALIZAR ANÁLISE DE VETOR E ENGENHARIA FORENSE DE SINAL MULTIMÍDIA:
+- Nome do Sinal: "${queryContext.name}"
+- Endereço do Nó (URL): ${queryContext.url}
+- Tipo Taxonômico: ${queryContext.type}
+- Categoria Operacional: ${queryContext.category}
+- Descrição Base: ${queryContext.description}
+- Serviço Originário: ${queryContext.service}
+- Score de Relevância Estimado: ${queryContext.relevance_score}
+- Estado de Saúde Detectado: ${queryContext.health || 'estável'}
+- Metadados Adicionais: ${JSON.stringify(queryContext.metadata)}
+
+Por favor, forneça um relatório técnico de inteligência de sinal (SIGINT) completo e altamente profissional estruturado EXCLUSIVAMENTE nas seções Markdown regulamentadas listadas abaixo:
+
+## CLASSIFICAÇÃO E ASSINATURA DO SINAL
+- **Assinatura do Host**: [Identificar o provedor/servidor de hospedagem, domínio, sua fidedignidade, país provável da infraestrutura]
+- **Protocolo de Rede**: [Análise do protocolo, ex: HTTP/HTTPS, SSL/TLS, status de segurança, conformidade de criptografia]
+- **Porta e Infraestrutura**: [Portas típicas associadas ao tipo de sinal, ex: 80, 443, 8000 para Icecast/Shoutcast, etc.]
+
+## VETORES DE TRANSMISSÃO E EXECUÇÃO
+- **Container / Codec Estável**: [Especificar codecs prováveis como MP3, AAC, H.264, VP9, MPEG, documentação, códigos-fonte, etc., conforme o tipo detectado]
+- **Configuração Recomendada do Player**: [Modo de renderização sugerido: proxy direto, streaming nativo de áudio/vídeo hls.js, player iframe controlado ou renderizador de dados]
+- **Ajustes de Buffer e Latência**: [Taxa de amostragem e latência estimada, tamanho de buffer ideal em milissegundos para evitar descontinuidade do fluxo de tráfego]
+
+## CONTEXTUALIZAÇÃO DO NÓ E PROVENIÊNCIA
+- **Fonte de Distribuição**: [Explicação detalhada sobre quem publica e mantém esse feed, o propósito científico, cultural, histórico ou musical deste nodo]
+- **Integridade Regional**: [O que o baricentro deste sinal representa geograficamente, sua relevância populacional do dial ou rede]
+- **Relevância para a Matriz**: [Como esta descoberta enriquece a indexação do banco de dados distribuído de busca espacial]
+
+## BLINDAGEM OPERACIONAL E RISCO
+- **Barreira de CORS & Origem**: [Se o sinal exige rota por proxy local (/api/proxy) devido a bloqueios de Cross-Origin Resource Sharing ou se é acessível direto]
+- **Vetores de Rastreamento**: [Se o nó contém parâmetros de query para rastreabilidade de IPs ou IDs dinâmicos]
+- **Recomendação de Anonimização**: [Se é recomendado ativar o Modo Stealth Privado de camuflagem para mitigação de footprint]`;
+
       const response = await generate({
-        prompt: `ANALISE_SINALIZADOR: "${signal.name}". NODE_PATH: ${signal.url}. Forneça relatórios precisos técnicos sobre os vetores de formato e natureza de acesso.`,
-        systemInstruction: "Aja como perito da engenharia de redes. Produza saídas estritamente técnicas, formatadas e precisas. Sem introduções conversacionais.",
-        temperature: 0.2
+        prompt: prompt,
+        systemInstruction: "Aja como Diretor de Inteligência Cibernética e Perito Militar de Engenharia de Redes Multimídia da NEBULA OS. Produza relatórios de nível de defesa militar, estritamente técnicos, extremamente profissionais, de leitura fluida e terminologia avançada de telecomunicações. Sempre formate suas divisões principais usando exatamente as marcações de Markdown solicitadas (## classe, ## vetores, etc.), com itens iniciados por hífen (-) e marcas de negrito (**). Sem introduções ou conclusões conversacionais.",
+        temperature: 0.25
       });
+
       res.json({ brief: response.content });
     } catch (error: unknown) {
-      Logger.error("FORENSE", "Falha ao interceptar sinal de modelagem AI", error);
-      res.status(500).json({ error: "FALHA_CONEXAO_LLM" });
+      Logger.error("FORENSE", "Falha de execução inteligência do sinal LLM:", error);
+      res.status(500).json({ error: "FALHA_CONEXAO_LLM", detail: error instanceof Error ? error.message : String(error) });
     }
   });
 

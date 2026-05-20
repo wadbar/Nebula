@@ -71,6 +71,7 @@ import { DiscoverView } from './components/DiscoverView';
 import { PlaylistViewer } from './components/PlaylistViewer';
 import { DownloadManager } from './components/DownloadManager';
 import GlobalSignalMap from './components/GlobalSignalMap';
+import AntennaInterface from './components/AntennaInterface';
 import ShortcutManager, { KeyboardShortcut, INITIAL_SHORTCUTS } from './components/ShortcutManager';
 import { Map as MapIcon, Keyboard as KeyboardIcon } from 'lucide-react';
 import GeoSearchController from './components/GeoSearchController';
@@ -672,7 +673,7 @@ export default function App() {
   const [searchFilterService, setSearchFilterService] = useState('all');
   const [searchFilterRelevance, setSearchFilterRelevance] = useState('all');
 
-  const [activeTab, setActiveTab] = useState<"all" | "radio" | "audio" | "video" | "video_stream" | "tv" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "favorites" | "history" | "playlists" | "discover" | "map">("discover");
+  const [activeTab, setActiveTab] = useState<"all" | "radio" | "audio" | "video" | "video_stream" | "tv" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "favorites" | "history" | "playlists" | "discover" | "map" | "antenna">("discover");
 
   const getFilteredResults = useCallback(() => {
     return results.filter(r => {
@@ -1521,6 +1522,16 @@ export default function App() {
 
     setCurrentMedia(media);
     setIsPlaying(true);
+    
+    // Automatically float the player and video components on smaller viewports so they are instantly visible
+    if (window.innerWidth < 1024) {
+      if (['video', 'video_stream', 'tv', 'live_cam', 'media'].includes(media.type)) {
+        setIsVideoFloating(true);
+        setIsVideoMinimized(false);
+      }
+      setIsFloating(true);
+      setIsMinimized(false);
+    }
     
     if (['video', 'video_stream', 'tv', 'media'].includes(media.type) && isSubtitleEnabled) {
         generateSubtitles(media);
@@ -2499,7 +2510,7 @@ export default function App() {
             />
 
   return (
-    <div className="h-screen w-full bg-[#050505] text-white p-4 font-sans select-none overflow-hidden flex flex-col gap-4 relative">
+    <div className="min-h-screen lg:h-screen w-full bg-[#050505] text-white p-2 sm:p-4 font-sans select-none overflow-y-auto lg:overflow-hidden flex flex-col gap-4 relative animate-[fadeIn_0.5s_ease-out]">
       {/* GLOBAL DATA TRACE BACKGROUND */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none overflow-hidden z-0">
         <div className="absolute inset-0 bg-[url('https://api.studio/assets/matrix.svg')] bg-[size:40px_40px]" />
@@ -2523,21 +2534,21 @@ export default function App() {
       </div>
       
       {/* GLOBAL STATUS BAR */}
-      <div className="h-8 shrink-0 flex items-center justify-between px-6 bg-white/5 border border-white/10 rounded-xl overflow-hidden relative">
+      <div className="h-auto py-2 lg:py-0 lg:h-9 shrink-0 flex flex-col lg:flex-row items-center justify-between px-4 lg:px-6 bg-white/5 border border-white/10 rounded-xl overflow-hidden relative gap-2 lg:gap-4 select-none">
         <div className="absolute inset-0 bg-gradient-to-r from-brand-green/5 via-transparent to-brand-green/5 animate-pulse pointer-events-none" />
-        <div className="flex items-center gap-6 relative z-10">
-            <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 lg:gap-6 relative z-10 w-full lg:w-auto">
+          <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse" />
             <span className="text-[10px] font-black tracking-widest text-white/80 uppercase">Nebula_V1_Ultimate_Core</span>
           </div>
           {workerActive && (
-            <div className="flex items-center gap-2 text-brand-cyan/80 animate-pulse border-l border-white/10 pl-6 h-4">
+            <div className="flex items-center gap-2 text-brand-cyan/80 animate-pulse border-l border-white/10 pl-4 h-4 hidden sm:flex">
               <Cpu className="w-3 h-3" />
               <span className="text-[9px] font-black tracking-widest uppercase">Ultimate_Accelerator_V1_Active</span>
             </div>
           )}
-          <div className="h-4 w-[1px] bg-white/10" />
-          <div className="flex items-center gap-4 text-[9px] font-mono text-white/40 uppercase">
+          <div className="h-4 w-[1px] bg-white/10 hidden xl:block" />
+          <div className="flex items-center gap-3 lg:gap-4 text-[9px] font-mono text-white/40 uppercase hidden md:flex">
             <span className="flex items-center gap-1.5"><CpuIcon className="w-3 h-3" /> CPU: {systemStats.cpu}%</span>
             <span className="flex items-center gap-1.5"><Activity className="w-3 h-3" /> NET: {systemStats.net}mbps</span>
             <span 
@@ -2551,48 +2562,48 @@ export default function App() {
             <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" /> UPTIME: {systemStats.uptime}</span>
           </div>
         </div>
-        <div className="flex items-center gap-6 relative z-10">
+        <div className="flex flex-wrap items-center justify-center lg:justify-end gap-3 lg:gap-6 relative z-10 w-full lg:w-auto overflow-x-auto py-1 lg:py-0 no-scrollbar">
           {!navigator.onLine ? (
-            <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-red-500 animate-pulse">
+            <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-red-500 animate-pulse shrink-0">
               <AlertCircle className="w-3 h-3" />
               OFFLINE_MODE
             </div>
           ) : systemStats.latency > 100 || systemStats.packetLoss > 2 ? (
-            <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-yellow-500 animate-pulse">
+            <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-yellow-500 animate-pulse shrink-0">
               <Activity className="w-3 h-3" />
               DEGRADED_NET
             </div>
           ) : null}
           <button 
             onClick={() => setShowDownloads(!showDownloads)}
-            className={`flex items-center gap-2 text-[10px] font-black tracking-widest transition-colors ${downloads.filter(d => d.status === 'downloading').length > 0 ? 'text-brand-green animate-pulse' : 'text-white/60 hover:text-white'}`}
+            className={`flex items-center gap-1.5 lg:gap-2 text-[10px] font-black tracking-widest transition-colors shrink-0 ${downloads.filter(d => d.status === 'downloading').length > 0 ? 'text-brand-green animate-pulse' : 'text-white/60 hover:text-white'}`}
           >
             <Download className="w-3 h-3" />
-            {downloads.filter(d => d.status === 'downloading').length > 0 ? 'DOWNLOADING...' : 'DOWNLOADS'}
+            <span className="hidden sm:inline">{downloads.filter(d => d.status === 'downloading').length > 0 ? 'DOWNLOADING...' : 'DOWNLOADS'}</span>
           </button>
-          <div className="h-4 w-[1px] bg-white/10" />
+          <div className="h-4 w-[1px] bg-white/10 hidden sm:block shrink-0" />
           <button 
             onClick={() => setShowOSCoreManager(true)}
-            className="flex items-center gap-2 text-[10px] font-black tracking-widest text-brand-green hover:text-white transition-colors"
+            className="flex items-center gap-1.5 lg:gap-2 text-[10px] font-black tracking-widest text-brand-green hover:text-white transition-colors shrink-0"
           >
             <Layers className="w-3 h-3 animate-pulse text-brand-cyan" />
-            OS CORE ENGINES
+            <span className="hidden sm:inline">OS CORE ENGINES</span>
           </button>
-          <div className="h-4 w-[1px] bg-white/10" />
+          <div className="h-4 w-[1px] bg-white/10 hidden sm:block shrink-0" />
           <button 
             onClick={() => setShowShortcutModal(true)}
-            className="flex items-center gap-2 text-[10px] font-black tracking-widest text-brand-cyan hover:text-white transition-colors"
+            className="flex items-center gap-1.5 lg:gap-2 text-[10px] font-black tracking-widest text-brand-cyan hover:text-white transition-colors shrink-0"
           >
             <KeyboardIcon className="w-3 h-3 animate-pulse text-brand-green" />
-            BIDS & KEYMAPS
+            <span className="hidden sm:inline">BIDS & KEYMAPS</span>
           </button>
-          <div className="h-4 w-[1px] bg-white/10" />
-          <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-brand-cyan/80">
+          <div className="h-4 w-[1px] bg-white/10 hidden md:block shrink-0" />
+          <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-brand-cyan/80 shrink-0 hidden md:flex">
             <Globe className="w-3 h-3" />
-            GLOBAL_NETWORK: ACTIVE
+            GLOBAL_NETWORK
           </div>
-          <div className="h-4 w-[1px] bg-white/10" />
-          <div className="text-[10px] font-mono text-white/60">
+          <div className="h-4 w-[1px] bg-white/10 hidden lg:block shrink-0" />
+          <div className="text-[10px] font-mono text-white/60 shrink-0 hidden lg:block">
             {new Date().toLocaleTimeString('en-US', { hour12: false })}
           </div>
         </div>
@@ -2616,11 +2627,12 @@ export default function App() {
                 <p className="text-[8px] text-brand-green font-mono uppercase opacity-60">Ultimate Resonance Service v1.0.0 [Advanced_Safe]</p>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:flex lg:flex-col gap-2">
               {[
                 { id: 'all', icon:Globe, label: 'GLOBAL NETWORK' },
                 { id: 'discover', icon:Compass, label: 'DISCOVER_SYNC' },
                 { id: 'map', icon:MapIcon, label: 'GLOBAL SIGNAL MAP' },
+                { id: 'antenna', icon:RadioReceiver, label: 'ANTENNA COUPLING' },
                 { id: 'radio', icon:Radio, label: 'AUDIO / RADIO' },
                 { id: 'video', icon:Video, label: 'VIDEO / MOTION' },
                 { id: 'live_cam', icon:Monitor, label: 'LIVE FEED / CAMS' },
@@ -2639,16 +2651,16 @@ export default function App() {
                     setActiveTab(tab.id as any);
                     setActiveCategory("All");
                   }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group ${
+                  className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl transition-all group ${
                     activeTab === tab.id 
                     ? 'bg-brand-green/10 text-brand-green border border-brand-green/20' 
                     : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
                   }`}
                 >
-                  <tab.icon className={`w-4 h-4 ${tab.id === 'favorites' && favorites.length > 0 ? 'fill-current text-yellow-500' : ''}`} />
-                  <span className="text-[10px] font-black tracking-widest">{tab.label}</span>
+                  <tab.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${tab.id === 'favorites' && favorites.length > 0 ? 'fill-current text-yellow-500' : ''}`} />
+                  <span className="text-[9px] sm:text-[10px] font-black tracking-widest truncate">{tab.label}</span>
                   {tab.id === 'favorites' && favorites.length > 0 && (
-                    <span className="ml-auto text-[10px] bg-white/5 px-2 py-0.5 rounded-full text-white/40">{favorites.length}</span>
+                    <span className="ml-auto text-[9px] sm:text-[10px] bg-white/5 px-1.5 py-0.5 rounded-full text-white/40 shrink-0">{favorites.length}</span>
                   )}
                 </button>
               ))}
@@ -3049,6 +3061,8 @@ export default function App() {
                 addLog={addLog}
                 setActivePlaylistId={setActivePlaylistId}
               />
+            ) : activeTab === 'antenna' ? (
+              <AntennaInterface />
             ) : activeTab === 'discover' ? (
               <DiscoverView playMedia={playMedia} />
             ) : viewMode === 'matrix' && results.length > 0 && activeTab !== 'favorites' && activeTab !== 'history' ? (
@@ -3170,16 +3184,16 @@ export default function App() {
                        </div>
                     </div>
 
-                    <div className="col-span-2 bento-card bg-white/5 border-white/5 p-8 flex items-center justify-center gap-12 group cursor-pointer hover:border-white/20 transition-all" onClick={() => setShowTerminal(true)}>
+                    <div className="col-span-1 sm:col-span-2 bento-card bg-white/5 border-white/5 p-4 sm:p-8 flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-12 group cursor-pointer hover:border-white/20 transition-all" onClick={() => setShowTerminal(true)}>
                        <div className="relative">
-                          <Terminal className="w-12 h-12 text-white/20 group-hover:text-brand-green transition-all" />
+                          <Terminal className="w-10 h-10 sm:w-12 sm:h-12 text-white/20 group-hover:text-brand-green transition-all" />
                           <div className="absolute -top-1 -right-1 w-4 h-4 bg-brand-green rounded-full animate-ping opacity-20" />
                        </div>
-                       <div className="text-center">
+                       <div className="text-center sm:text-left">
                           <p className="text-[10px] font-black text-white tracking-[0.3em] uppercase mb-1">Ready for connection</p>
                           <p className="text-[8px] font-mono text-white/20 uppercase">Input search parameters or execute terminal commands</p>
                        </div>
-                       <ChevronRight className="w-6 h-6 text-white/10 group-hover:text-white transition-all translate-x-0 group-hover:translate-x-2" />
+                       <ChevronRight className="w-6 h-6 text-white/10 group-hover:text-white transition-all translate-x-0 group-hover:translate-x-2 hidden sm:block" />
                     </div>
                   </div>
                 )}
@@ -3209,10 +3223,14 @@ export default function App() {
         initial={false}
         animate={
           isVideoMinimized ? { scale: 0, opacity: 0, y: 100 } :
-          isVideoFloating ? { scale: 1, opacity: 1, position: 'fixed', bottom: 120, right: 20, zIndex: 110, width: "360px", height: "auto", y: 0, aspectRatio: '16/9' } :
+          isVideoFloating ? { scale: 1, opacity: 1, position: 'fixed', zIndex: 110, y: 0 } :
           { scale: 1, opacity: 1, position: 'relative', width: '100%', height: '100%', bottom: 'auto', right: 'auto', zIndex: 1, y: 0 }
         }
-        className={`${isVideoFloating ? "shadow-2xl border border-brand-green/40 cursor-move backdrop-blur-2xl rounded-xl" : "flex-1 rounded-2xl"} grid grid-cols-1 bg-black/40 border-dashed border-white/20 relative items-center justify-center overflow-hidden group/video`}
+        className={`${
+          isVideoFloating 
+            ? "fixed bottom-[140px] left-4 right-4 sm:left-auto sm:right-5 sm:w-[320px] md:w-[360px] shadow-2xl border border-brand-green/40 cursor-move backdrop-blur-2xl rounded-xl" 
+            : "flex-1 rounded-2xl"
+        } grid grid-cols-1 bg-black/40 border-dashed border-white/20 relative items-center justify-center overflow-hidden group/video aspect-video`}
     >
         {/* Detach / Minimize Controls */}
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/video:opacity-100 transition-opacity z-50">
@@ -3461,7 +3479,7 @@ export default function App() {
                             
                             <div className="col-span-2 border-b border-white/10 pb-4 mb-4">
                                 <h4 className="text-white/40 font-bold mb-3">SYSTEM_AND_SIGNAL_METRICS</h4>
-                                <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
                                  <div className="flex justify-between"><span className="text-white/40">CODEC</span><span className="text-brand-green">{streamInfo.codec || 'N/A'}</span></div>
                                  <div className="flex justify-between"><span className="text-white/40">FRAME_RATE</span><span className="text-brand-green">{streamInfo.fps ? `${streamInfo.fps} FPS` : 'N/A'}</span></div>
                                  <div className="flex justify-between"><span className="text-white/40">BUFFER_STATUS</span><span className="text-yellow-500">{streamInfo.buffer !== undefined ? `${streamInfo.buffer}s` : 'N/A'}</span></div>
@@ -3470,7 +3488,7 @@ export default function App() {
                                  <div className="flex justify-between"><span className="text-white/40">NETWORK</span><span className="text-brand-cyan">{systemStats.net.toFixed(1)} MBPS</span></div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-xs font-mono mb-8 text-white/70">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-xs font-mono mb-8 text-white/70">
                               <div className="flex flex-col">
                                 <span className="text-white/40 mb-1">TYPE_IDENTIFIER</span>
                                 <span className="uppercase text-brand-green font-black">{currentMedia.type}</span>
@@ -3571,12 +3589,12 @@ export default function App() {
 
         {/* Bottom Wide: Player Module placeholder (if floating) */}
         {isFloating && !isMinimized && (
-           <div className="col-span-8 row-span-2 bento-card p-8 flex items-center justify-center opacity-30 border border-dashed border-white/20">
+           <div className="col-span-12 lg:col-span-8 lg:row-span-2 bento-card p-8 flex items-center justify-center opacity-30 border border-dashed border-white/20">
               <span className="text-xs font-mono text-white/50 uppercase tracking-widest">Player Module Detached</span>
            </div>
         )}
         {(isFloating && isMinimized) && (
-           <div className="col-span-8 row-span-2" />
+           <div className="col-span-12 lg:col-span-8 lg:row-span-2" />
         )}
 
         {/* Player Module */}
@@ -3586,10 +3604,10 @@ export default function App() {
            initial={false}
            animate={
              isMinimized ? { scale: 0, opacity: 0, y: 200 } :
-             isFloating ? { scale: 1, opacity: 1, position: 'fixed', bottom: 20, left: 20, zIndex: 100, width: "600px", y: 0 } :
-             { scale: 1, opacity: 1, position: 'relative', width: 'auto', bottom: 'auto', left: 'auto', zIndex: 1, y: 0 }
+             isFloating ? { scale: 1, opacity: 1, position: 'fixed', zIndex: 100, y: 0 } :
+             { scale: 1, opacity: 1, position: 'relative', bottom: 'auto', zIndex: 1, y: 0 }
            }
-           className={`${isFloating ? "shadow-2xl border border-brand-green/30 cursor-move backdrop-blur-xl" : "col-span-8 row-span-2"} bento-card p-8 flex items-center gap-12 bg-gradient-to-r from-brand-green/5 to-black/80 group/player`}
+           className={`${isFloating ? "fixed bottom-5 left-4 right-4 md:left-5 md:right-auto md:w-[600px] shadow-2xl border border-brand-green/30 cursor-move backdrop-blur-xl" : "col-span-12 lg:col-span-8 lg:row-span-2"} bento-card p-4 sm:p-8 flex flex-col md:flex-row items-center gap-4 md:gap-12 bg-gradient-to-r from-brand-green/5 to-black/80 group/player`}
         >
            {/* Detach / Minimize Controls */}
            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/player:opacity-100 transition-opacity z-50">
@@ -3651,7 +3669,7 @@ export default function App() {
                </div>
 
               {/* INTELLIGENCE BRIEFING & REGISTRY VALIDATION PANEL */}
-              <div className="mb-4 grid grid-cols-5 gap-4">
+              <div className="mb-4 grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div 
                   onClick={() => {
                     if (currentMedia) {
@@ -3662,7 +3680,7 @@ export default function App() {
                       }
                     }
                   }}
-                  className="col-span-3 h-20 bg-white/[0.03] hover:bg-white/[0.08] cursor-pointer border border-white/5 hover:border-brand-green/30 rounded-xl p-3 flex flex-col justify-center relative overflow-hidden group transition-all"
+                  className="col-span-1 md:col-span-3 h-20 bg-white/[0.03] hover:bg-white/[0.08] cursor-pointer border border-white/5 hover:border-brand-green/30 rounded-xl p-3 flex flex-col justify-center relative overflow-hidden group transition-all"
                   title="Expand to Full AI Signal Intelligence Report"
                 >
                    <div className="absolute top-0 right-3 flex gap-1 pt-1 opacity-20">
@@ -3690,7 +3708,7 @@ export default function App() {
                    )}
                 </div>
 
-                <div className="col-span-2 h-20 bg-brand-green/[0.03] border border-brand-green/10 rounded-xl p-3 flex flex-col justify-between relative overflow-hidden">
+                <div className="col-span-1 md:col-span-2 h-20 bg-brand-green/[0.03] border border-brand-green/10 rounded-xl p-3 flex flex-col justify-between relative overflow-hidden">
                    <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                          <Fingerprint className={`w-3 h-3 ${validationData?.valid ? 'text-brand-green' : 'text-white/20'}`} />
@@ -3730,7 +3748,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-12">
+              <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 xl:gap-12 w-full">
                  <div className="flex-1">
                     <p className="text-[10px] text-white/40 font-mono mb-2 truncate w-full max-w-md">
                       {currentMedia ? `SOURCE [${currentMedia.url}] | TYPE: ${currentMedia.type}` : "AWAITING SECURE STREAM CONNECTION. ENCRYPTION STANDARDS STANDING BY."}
@@ -3750,7 +3768,7 @@ export default function App() {
                       />
                       <span className="text-white/60 text-[10px] font-mono w-10 text-right">{formatTime(duration)}</span>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
                        <div className="flex items-center bg-white/5 rounded-2xl border border-white/10 p-1 overflow-hidden">
                           <motion.button 
                              whileTap={{ scale: 0.9 }}
@@ -3875,7 +3893,7 @@ export default function App() {
         </motion.div>
 
         {/* System Terminal Log (Bottom Right) */}
-        <div className="col-span-4 row-span-2 bento-card p-6 flex flex-col gap-3 bg-black">
+        <div className="col-span-12 lg:col-span-4 lg:row-span-2 bento-card p-6 flex flex-col gap-3 bg-black">
            <div className="flex items-center justify-between mb-1">
               <span className="text-[9px] font-black tracking-widest text-brand-green/80 uppercase">System Intelligence Log</span>
               <Activity className="w-3 h-3 text-brand-green/40" />
