@@ -164,13 +164,29 @@ export const PlaylistViewer = ({
                     {playlist.items.map((item) => (
                     <Reorder.Item key={item.url} value={item} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 flex items-center gap-4 cursor-grab transition-colors">
                         <div className="text-white/20"><List className="w-4 h-4" /></div>
-                        <div className="flex-1 text-xs text-white truncate">{item.name}</div>
-                        <button onClick={() => {
-                          setActivePlaylistId(playlist.id);
-                          playMedia(item);
-                        }} className="text-white/40 hover:text-brand-green transition-colors cursor-pointer" onPointerDown={e => e.stopPropagation()}>
-                          <Play className="w-4 h-4" />
-                        </button>
+                        <div className="flex-1 text-xs text-white truncate text-left">{item.name}</div>
+                        <div className="flex items-center gap-2" onPointerDown={e => e.stopPropagation()}>
+                          <button 
+                            onClick={() => {
+                              setActivePlaylistId(playlist.id);
+                              playMedia(item);
+                            }} 
+                            className="text-white/40 hover:text-brand-green transition-colors cursor-pointer p-1"
+                            title="Play"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setPlaylists(prev => prev.map(p => p.id === playlist.id ? { ...p, items: p.items.filter(i => i.url !== item.url) } : p));
+                              addLog(`Removed from playlist: ${item.name}`, "info");
+                            }}
+                            className="text-white/20 hover:text-red-500 transition-colors cursor-pointer p-1"
+                            title="Remove from Playlist"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                     </Reorder.Item>
                     ))}
                 </Reorder.Group>

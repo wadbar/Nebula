@@ -183,8 +183,14 @@ export async function generate({
 
   if (activeProviders.length === 0) {
     const providerStatus = providers.map(p => `${p.name}: ${p.check() ? 'READY' : 'MISCONFIGURED'}${p.isFailing ? ' (FAILED)' : ''}`).join(', ');
-    console.error(`[AI_CORE] No active providers. Status: ${providerStatus}`);
-    throw new Error(`ALL_AI_PROVIDERS_OFFLINE: ${providerStatus}`);
+    console.warn(`[AI_CORE] No active providers. Status: ${providerStatus}`);
+    return {
+      success: false,
+      provider: 'offline_fallback',
+      model: 'none',
+      content: responseType === 'json' ? [] : `AI Services Offline: Providers misconfigured (${providerStatus})`,
+      timestamp: new Date().toISOString()
+    };
   }
 
   for (const provider of activeProviders) {
@@ -215,7 +221,14 @@ export async function generate({
     }
   }
 
-  throw new Error(`ALL_AI_PROVIDERS_FAILED: ${JSON.stringify(errors)}`);
+  console.warn(`[AI_CORE] ALL_AI_PROVIDERS_FAILED: ${JSON.stringify(errors)}`);
+  return {
+    success: false,
+    provider: 'failure_fallback',
+    model: 'none',
+    content: responseType === 'json' ? [] : `AI Services temporarily unavailable. Errors: ${JSON.stringify(errors)}`,
+    timestamp: new Date().toISOString()
+  };
 }
 
 
