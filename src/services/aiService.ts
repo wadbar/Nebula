@@ -1,22 +1,23 @@
 /**
- * NEBULA_OS_AI_CORE_V4
- * Purpose: Universal, agnostic, robust AI invocation service (ESM)
- * Strategy: Circuit Breaking / Fallback via Provider Chain, Dynamic Plugin-like Discovery
+ * NEBULA_OS_AI_CORE_V4_MODERN
+ * Purpose: Modern Google GenAI SDK powered robust AI invocation service.
+ * Strategy: Circuit Breaking / Fallback via Provider Chain, Dynamic Plugin-like Discovery.
  */
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 export interface GeneratorResponse {
   success: boolean;
   provider: string;
   model: string;
   content: any;
+  groundingChunks?: any[];
   timestamp: string;
 }
 
 interface Provider {
   name: string;
-  run: (prompt: string, system: string, type: 'text' | 'json', temp: number, useSearch: boolean) => Promise<any>;
+  run: (prompt: string, system: string, type: 'text' | 'json', temp: number, useSearch: boolean) => Promise<{ text: string; groundingChunks?: any[] }>;
   check: () => boolean;
   isFailing: boolean;
   failureCount: number;
@@ -25,15 +26,23 @@ interface Provider {
 const PROVIDER_TIMEOUT = 45000;
 const FAILURE_THRESHOLD = 3;
 
-// Lazy initialization of Gemini client to prevent crash if key is missing at start
-let genAI: GoogleGenerativeAI | null = null;
+// Lazy initialization of Gemini client
+let aiClient: GoogleGenAI | null = null;
 const getGeminiClient = () => {
-  if (!genAI) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return null;
-    genAI = new GoogleGenerativeAI(apiKey);
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  
+  if (!aiClient) {
+    aiClient = new GoogleGenAI({
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
   }
-  return genAI;
+  return aiClient;
 };
 
 // --- Sanitization Utils ---
@@ -63,38 +72,43 @@ const sanitizeJson = (content: string): any => {
 // --- Provider Implementation ---
 
 const runGemini: Provider["run"] = async (prompt, system, type, temp, useSearch) => {
-  const genAIClient = getGeminiClient();
-  if (!genAIClient) throw new Error("GEMINI_NOT_CONFIGURED");
+  const client = getGeminiClient();
+  if (!client) throw new Error("GEMINI_NOT_CONFIGURED");
 
-  const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-  
-  const model = genAIClient.getGenerativeModel({ 
-    model: modelName,
+  // Avoid deprecated model. Preferred: gemini-3.5-flash
+  let modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+  if (modelName === 'gemini-1.5-flash' || modelName === 'gemini-1.5-pro' || modelName === 'gemini-pro') {
+    modelName = 'gemini-3.5-flash';
+  }
+
+  const config: any = {
     systemInstruction: system,
-  });
-
-  const generationConfig = {
     temperature: temp,
-    responseMimeType: (type === 'json' && !useSearch) ? "application/json" : "text/plain"
   };
 
-  const tools = useSearch ? [{ googleSearchRetrieval: {} }] : undefined;
+  if (type === 'json') {
+    config.responseMimeType = "application/json";
+  }
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig,
-    tools: tools as any
+  if (useSearch) {
+    config.tools = [{ googleSearch: {} }];
+  }
+
+  const response = await client.models.generateContent({
+    model: modelName,
+    contents: prompt,
+    config: config
   });
 
-  const response = await result.response;
-  const text = response.text();
-
+  const text = response.text;
   if (!text) {
     console.error("[GEMINI] Empty Response");
     throw new Error("INVALID_RESPONSE_STRUCTURE");
   }
 
-  return text;
+  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || undefined;
+
+  return { text, groundingChunks };
 };
 
 const runOllama: Provider["run"] = async (prompt, system, type, temp, _useSearch) => {
@@ -118,7 +132,7 @@ const runOllama: Provider["run"] = async (prompt, system, type, temp, _useSearch
     if (!res.ok) throw new Error(`API_ERROR_OLLAMA (${res.status})`);
     const data = await res.json();
     if (!data.response) throw new Error("INVALID_RESPONSE_STRUCTURE");
-    return data.response;
+    return { text: data.response };
   } catch (e: any) {
     throw new Error(`OLLAMA_UNREACHABLE: ${e.message}`);
   }
@@ -149,7 +163,7 @@ const runNvidia: Provider["run"] = async (prompt, system, type, temp, _useSearch
     if (!data.choices?.[0]?.message?.content) {
       throw new Error("INVALID_RESPONSE_STRUCTURE");
     }
-    return data.choices[0].message.content;
+    return { text: data.choices[0].message.content };
   } catch (e: any) {
     throw new Error(`NVIDIA_UNREACHABLE: ${e.message}`);
   }
@@ -197,8 +211,8 @@ export async function generate({
     console.log(`[AI_CORE] Attempting: ${provider.name.toUpperCase()}...`);
       
     try {
-      const rawResult = await provider.run(prompt, systemInstruction, responseType, temperature, useSearch);
-      const content = responseType === 'json' ? sanitizeJson(rawResult) : rawResult;
+      const resultObj = await provider.run(prompt, systemInstruction, responseType, temperature, useSearch);
+      const content = responseType === 'json' ? sanitizeJson(resultObj.text) : resultObj.text;
       
       provider.failureCount = 0;
 
@@ -207,6 +221,7 @@ export async function generate({
         provider: provider.name,
         model: process.env[`${provider.name.toUpperCase()}_MODEL`] || 'dynamic',
         content: content,
+        groundingChunks: resultObj.groundingChunks,
         timestamp: new Date().toISOString()
       };
     } catch (err: any) {
@@ -230,5 +245,3 @@ export async function generate({
     timestamp: new Date().toISOString()
   };
 }
-
-

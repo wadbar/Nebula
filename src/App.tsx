@@ -70,6 +70,9 @@ import { DownloadTask, MediaResult, ValidationResult, LogEntry, Playlist } from 
 import { DiscoverView } from './components/DiscoverView';
 import { PlaylistViewer } from './components/PlaylistViewer';
 import { DownloadManager } from './components/DownloadManager';
+import GlobalSignalMap from './components/GlobalSignalMap';
+import ShortcutManager, { KeyboardShortcut, INITIAL_SHORTCUTS } from './components/ShortcutManager';
+import { Map as MapIcon, Keyboard as KeyboardIcon } from 'lucide-react';
 
 const formatTime = (timeInSeconds: number) => {
   if (isNaN(timeInSeconds)) return "00:00";
@@ -515,6 +518,41 @@ const TRENDING_QUERIES = [
   "PeerTube tech", "Dailymotion news", "Jamendo electronic", "Open Source tools"
 ];
 
+const renderInlineFormatting = (str: string) => {
+  if (!str) return [];
+  const parts = str.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} className="text-white font-extrabold select-text">{part.slice(2, -2)}</strong>;
+    }
+    return <span key={i} className="select-text">{part}</span>;
+  });
+};
+
+const renderCyberMarkdown = (text: string) => {
+  if (!text) return null;
+  const lines = text.split('\n');
+  return lines.map((line, i) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('###')) {
+      return <h4 key={i} className="text-brand-cyan text-[11px] font-black tracking-widest uppercase mt-4 mb-2 select-text">{trimmed.replace(/^###\s*/, '')}</h4>;
+    }
+    if (trimmed.startsWith('##')) {
+      return <h3 key={i} className="text-brand-green text-xs font-black tracking-widest uppercase mt-5 mb-2 select-text">{trimmed.replace(/^##\s*/, '')}</h3>;
+    }
+    if (trimmed.startsWith('*') || trimmed.startsWith('-')) {
+      const content = trimmed.replace(/^[\s*-]+\s*/, '');
+      return (
+        <div key={i} className="flex gap-2 mt-1 pl-2 leading-relaxed select-text text-[10px] text-white/80">
+          <span className="text-brand-green mr-1.5 font-bold">▰</span>
+          <span>{renderInlineFormatting(content)}</span>
+        </div>
+      );
+    }
+    return <p key={i} className="text-white/60 leading-relaxed mt-1.5 pl-1 mb-1 select-text text-[10px]">{renderInlineFormatting(line)}</p>;
+  });
+};
+
 export default function App() {
   const [query, setQuery] = useState("");
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
@@ -589,7 +627,7 @@ export default function App() {
   const [searchFilterService, setSearchFilterService] = useState('all');
   const [searchFilterRelevance, setSearchFilterRelevance] = useState('all');
 
-  const [activeTab, setActiveTab] = useState<"all" | "radio" | "audio" | "video" | "video_stream" | "tv" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "favorites" | "history" | "playlists" | "discover">("discover");
+  const [activeTab, setActiveTab] = useState<"all" | "radio" | "audio" | "video" | "video_stream" | "tv" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "favorites" | "history" | "playlists" | "discover" | "map">("discover");
 
   const getFilteredResults = useCallback(() => {
     return results.filter(r => {
@@ -751,6 +789,13 @@ export default function App() {
   
   // Open-Source Scrapers & Media Core configurations (VLC, CocoScrapers, OpenSearch, Torch & Scraper Filmes)
   const [showOSCoreManager, setShowOSCoreManager] = useState(false);
+  const [showShortcutModal, setShowShortcutModal] = useState(false);
+  const [showIntelDetailModal, setShowIntelDetailModal] = useState(false);
+  const [intelDetailMedia, setIntelDetailMedia] = useState<MediaResult | null>(null);
+  const [shortcuts, setShortcuts] = useState<KeyboardShortcut[]>(() => {
+    const saved = localStorage.getItem('nebula_custom_shortcuts');
+    return saved ? JSON.parse(saved) : INITIAL_SHORTCUTS;
+  });
   const [vlcBufferMs, setVlcBufferMs] = useState<number>(1200);
   const [vlcAudioSync, setVlcAudioSync] = useState<number>(0);
   const [cocoMaxThreads, setCocoMaxThreads] = useState<number>(8);
@@ -2189,6 +2234,13 @@ export default function App() {
     }
   };
 
+  const handleToggleSubtitles = () => {
+    if (!isSubtitleEnabled && currentMedia && !subtitles && !isGeneratingSubtitles) {
+       generateSubtitles(currentMedia);
+    }
+    setIsSubtitleEnabled(!isSubtitleEnabled);
+  };
+
   const handleTogglePlayback = () => {
     if (isPlaying) {
       handlePause();
@@ -2204,75 +2256,76 @@ export default function App() {
         return;
       }
       
-      switch (e.code) {
-        case 'KeyF':
-          e.preventDefault();
-          handleFullscreen();
-          break;
-        case 'KeyM':
-          e.preventDefault();
-          setVolume(prev => prev === 0 ? 0.5 : 0);
-          break;
-        case 'Space':
-          e.preventDefault();
-          handleTogglePlayback();
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          if (e.shiftKey) {
-            handleSkip();
-          } else {
-            if (videoRef.current) {
-              videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + 10);
-            }
+      const findBoundAction = (id: string) => {
+        return shortcuts.find(s => s.id === id)?.currentCode;
+      };
+
+      const code = e.code;
+      if (code === findBoundAction('fullscreen')) {
+        e.preventDefault();
+        handleFullscreen();
+      } else if (code === findBoundAction('mute')) {
+        e.preventDefault();
+        setVolume(prev => prev === 0 ? 0.5 : 0);
+      } else if (code === findBoundAction('toggle_playback')) {
+        e.preventDefault();
+        handleTogglePlayback();
+      } else if (code === findBoundAction('seek_forward')) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleSkip();
+        } else {
+          if (videoRef.current) {
+            videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + 10);
           }
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          if (e.shiftKey) {
-             handleSkipBackward();
-          } else {
-            if (videoRef.current) {
-              videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
-            }
+          if (audioRef.current) {
+            audioRef.current.currentTime = Math.min(audioRef.current.duration, audioRef.current.currentTime + 10);
           }
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          setVolume(prev => Math.min(1, prev + 0.1));
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          setVolume(prev => Math.max(0, prev - 0.1));
-          break;
-        case 'BracketRight':
-          e.preventDefault();
-          if (e.shiftKey) {
-            const tabs: typeof activeTab[] = ["all", "favorites", "history", "playlists"]; // Simplified tab navigation
-            const idx = tabs.indexOf(activeTab);
-            setActiveTab(tabs[(idx + 1) % tabs.length]);
-          } else {
-            const idx = categories.indexOf(activeCategory);
-            setActiveCategory(categories[(idx + 1) % categories.length]);
+        }
+      } else if (code === findBoundAction('seek_backward')) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleSkipBackward();
+        } else {
+          if (videoRef.current) {
+            videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
           }
-          break;
-        case 'BracketLeft':
-          e.preventDefault();
-          if (e.shiftKey) {
-            const tabs: typeof activeTab[] = ["all", "favorites", "history", "playlists"];
-            const idx = tabs.indexOf(activeTab);
-            setActiveTab(tabs[(idx - 1 + tabs.length) % tabs.length]);
-          } else {
-            const idx = categories.indexOf(activeCategory);
-            setActiveCategory(categories[(idx - 1 + categories.length) % categories.length]);
+          if (audioRef.current) {
+            audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 10);
           }
-          break;
+        }
+      } else if (code === findBoundAction('volume_up')) {
+        e.preventDefault();
+        setVolume(prev => Math.min(1, prev + 0.1));
+      } else if (code === findBoundAction('volume_down')) {
+        e.preventDefault();
+        setVolume(prev => Math.max(0, prev - 0.1));
+      } else if (code === findBoundAction('next_category')) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          const tabs: typeof activeTab[] = ["all", "favorites", "history", "playlists"];
+          const idx = tabs.indexOf(activeTab);
+          setActiveTab(tabs[(idx + 1) % tabs.length]);
+        } else {
+          const idx = categories.indexOf(activeCategory);
+          setActiveCategory(categories[(idx + 1) % categories.length]);
+        }
+      } else if (code === findBoundAction('prev_category')) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          const tabs: typeof activeTab[] = ["all", "favorites", "history", "playlists"];
+          const idx = tabs.indexOf(activeTab);
+          setActiveTab(tabs[(idx - 1 + tabs.length) % tabs.length]);
+        } else {
+          const idx = categories.indexOf(activeCategory);
+          setActiveCategory(categories[(idx - 1 + categories.length) % categories.length]);
+        }
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, activeCategory, activeTab, categories]);
+  }, [isPlaying, activeCategory, activeTab, categories, shortcuts]);
 
   const handlePlay = () => {
     if (!isPlaying && currentMedia) {
@@ -2416,6 +2469,14 @@ export default function App() {
             OS CORE ENGINES
           </button>
           <div className="h-4 w-[1px] bg-white/10" />
+          <button 
+            onClick={() => setShowShortcutModal(true)}
+            className="flex items-center gap-2 text-[10px] font-black tracking-widest text-brand-cyan hover:text-white transition-colors"
+          >
+            <KeyboardIcon className="w-3 h-3 animate-pulse text-brand-green" />
+            BIDS & KEYMAPS
+          </button>
+          <div className="h-4 w-[1px] bg-white/10" />
           <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-brand-cyan/80">
             <Globe className="w-3 h-3" />
             GLOBAL_NETWORK: ACTIVE
@@ -2449,6 +2510,7 @@ export default function App() {
               {[
                 { id: 'all', icon:Globe, label: 'GLOBAL NETWORK' },
                 { id: 'discover', icon:Compass, label: 'DISCOVER_SYNC' },
+                { id: 'map', icon:MapIcon, label: 'GLOBAL SIGNAL MAP' },
                 { id: 'radio', icon:Radio, label: 'AUDIO / RADIO' },
                 { id: 'video', icon:Video, label: 'VIDEO / MOTION' },
                 { id: 'live_cam', icon:Monitor, label: 'LIVE FEED / CAMS' },
@@ -2845,7 +2907,19 @@ export default function App() {
           )}
 
           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar pt-2">
-            {activeTab === 'playlists' ? (
+            {activeTab === 'map' ? (
+              <GlobalSignalMap 
+                results={results}
+                playMedia={playMedia}
+                currentMedia={currentMedia}
+                addLog={addLog}
+                fetchIntel={fetchIntel}
+                openIntelPanel={(node) => {
+                  setIntelDetailMedia(node);
+                  setShowIntelDetailModal(true);
+                }}
+              />
+            ) : activeTab === 'playlists' ? (
               <PlaylistViewer 
                 playlists={playlists}
                 setPlaylists={setPlaylists}
@@ -3172,7 +3246,10 @@ export default function App() {
                     onChange={(e) => setVolume(parseFloat(e.target.value))}
                     className="w-20 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-brand-green"
                   />
-                  <button onClick={handleFullscreen} className="text-white/60 hover:text-white transition-colors">
+                  <button onClick={handleToggleSubtitles} className={`transition-colors ${isSubtitleEnabled ? 'text-brand-green' : 'text-white/60 hover:text-white'}`} title="AI AI-Powered Subtitles">
+                     <Fingerprint className="w-4 h-4" />
+                  </button>
+                  <button onClick={handleFullscreen} className="text-white/60 hover:text-white transition-colors" title="Fullscreen">
                      <Maximize className="w-4 h-4" />
                   </button>
                 </div>
@@ -3453,10 +3530,22 @@ export default function App() {
 
               {/* INTELLIGENCE BRIEFING & REGISTRY VALIDATION PANEL */}
               <div className="mb-4 grid grid-cols-5 gap-4">
-                <div className="col-span-3 h-20 bg-white/[0.03] border border-white/5 rounded-xl p-3 flex flex-col justify-center relative overflow-hidden group">
+                <div 
+                  onClick={() => {
+                    if (currentMedia) {
+                      setIntelDetailMedia(currentMedia);
+                      setShowIntelDetailModal(true);
+                      if (!intelBrief && !intelLoading) {
+                        fetchIntel(currentMedia);
+                      }
+                    }
+                  }}
+                  className="col-span-3 h-20 bg-white/[0.03] hover:bg-white/[0.08] cursor-pointer border border-white/5 hover:border-brand-green/30 rounded-xl p-3 flex flex-col justify-center relative overflow-hidden group transition-all"
+                  title="Expand to Full AI Signal Intelligence Report"
+                >
                    <div className="absolute top-0 right-3 flex gap-1 pt-1 opacity-20">
-                      <span className="w-1 h-1 bg-brand-green rounded-full" />
-                      <span className="w-1 h-1 bg-brand-green rounded-full" />
+                      <span className="w-1 h-1 bg-brand-green rounded-full group-hover:scale-125 transition-transform" />
+                      <span className="w-1 h-1 bg-brand-green rounded-full group-hover:scale-125 transition-transform" />
                    </div>
                    {intelLoading ? (
                      <div className="flex items-center gap-3">
@@ -3465,13 +3554,16 @@ export default function App() {
                      </div>
                    ) : intelBrief ? (
                      <div className="flex gap-4 items-start">
-                        <Lock className="w-4 h-4 text-brand-green shrink-0 mt-0.5" />
-                        <RenderTextWithLinks text={intelBrief} className="text-[10px] text-white/60 leading-relaxed font-mono line-clamp-2 italic" />
+                        <Lock className="w-4 h-4 text-brand-green shrink-0 mt-0.5 animate-pulse" />
+                        <div className="flex-1 min-w-0">
+                          <RenderTextWithLinks text={intelBrief} className="text-[10px] text-white/60 leading-relaxed font-mono line-clamp-2 italic" />
+                          <span className="text-[7px] text-brand-green uppercase font-bold tracking-widest block mt-0.5 select-none opacity-60 group-hover:opacity-100 transition-opacity">▶ CLICK FOR FULL FORENSIC REPORT</span>
+                        </div>
                      </div>
                    ) : (
-                     <div className="flex items-center gap-3 opacity-30">
+                     <div className="flex items-center gap-3 opacity-30 group-hover:opacity-100 transition-opacity">
                         <Shield className="w-3 h-3 text-white" />
-                        <span className="text-[9px] font-mono text-white uppercase italic">No intelligence briefing available for this signal node.</span>
+                        <span className="text-[9px] font-mono text-white uppercase italic">Click to generate AI Signal Intelligence briefing.</span>
                      </div>
                    )}
                 </div>
@@ -4225,8 +4317,8 @@ export default function App() {
                                    <span className="text-[8px] font-black px-1.5 py-0.5 bg-brand-green/10 text-brand-green border border-brand-green/20 rounded uppercase">Hybrid Tier 2</span>
                                    <span className="text-[8px] font-mono text-white/20">Google</span>
                                 </div>
-                                <h5 className="text-xs font-bold text-white mb-1 truncate" title={process.env.GEMINI_MODEL || "gemini-1.5-pro"}>
-                                   {process.env.GEMINI_MODEL || "gemini-1.5-pro"}
+                                <h5 className="text-xs font-bold text-white mb-1 truncate" title={process.env.GEMINI_MODEL || "gemini-3.5-flash"}>
+                                   {process.env.GEMINI_MODEL || "gemini-3.5-flash"}
                                 </h5>
                                 <p className="text-[10px] text-white/40 leading-relaxed mb-4">
                                    Cloud accelerator target. WebGPU speeds up tokenizer processing and structured output rendering buffers in browser cache profiles. Optimal latency reached under <b className="text-brand-green">380ms</b>.
@@ -4488,6 +4580,111 @@ export default function App() {
                                 {torchProxyActive ? 'Proxy Encryption: On (Spoof Active)' : 'Proxy Encryption: Off (Direct Handshake)'}
                               </button>
                            </div>
+                        </div>
+                     </div>
+                  </div>
+               </motion.div>
+            </motion.div>
+          )}
+       </AnimatePresence>
+
+       {/* Keyboard Shortcuts Customizer Modal */}
+       <AnimatePresence>
+          {showShortcutModal && (
+            <ShortcutManager
+              onClose={() => setShowShortcutModal(false)}
+              shortcuts={shortcuts}
+              setShortcuts={setShortcuts}
+              addLog={addLog}
+            />
+          )}
+       </AnimatePresence>
+
+       {/* Expanded AI Signal Intelligence Forensic Modal */}
+       <AnimatePresence>
+          {showIntelDetailModal && intelDetailMedia && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-md flex items-center justify-center p-6 sm:p-12 font-mono"
+            >
+               <motion.div 
+                 initial={{ scale: 0.92, y: 15 }}
+                 animate={{ scale: 1, y: 0 }}
+                 exit={{ scale: 0.92, y: 15 }}
+                 className="w-full max-w-3xl h-full max-h-[85vh] bento-card p-0 flex flex-col overflow-hidden border-brand-green/30 bg-black/85 shadow-2xl relative"
+               >
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-[radial-gradient(circle_at_100%_0,rgba(0,255,65,0.08),transparent)] pointer-events-none" />
+                  
+                  <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02] backdrop-blur-md relative z-10">
+                     <div className="flex items-center gap-4">
+                        <Shield className="w-6 h-6 text-brand-green animate-pulse" />
+                        <div>
+                           <h3 className="text-sm font-black text-white uppercase tracking-wider">AI_SIGNAL_INTELLIGENCE_REPORT</h3>
+                           <p className="text-[9px] text-brand-green font-mono uppercase tracking-widest">DeepMind Forensic Decryption Analysis v1.1</p>
+                        </div>
+                     </div>
+                     <button 
+                       onClick={() => {
+                         setShowIntelDetailModal(false);
+                         setIntelDetailMedia(null);
+                       }}
+                       className="px-4 py-2 border border-brand-green/20 hover:border-brand-green/50 rounded-xl text-[10px] font-mono text-brand-green hover:text-white transition-all uppercase cursor-pointer"
+                     >
+                       Close Report
+                     </button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 custom-scrollbar bg-black/30 relative z-10">
+                     {/* Metadata Card Header */}
+                     <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02] grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5 text-[10px] text-white/50">
+                           <span className="text-[8px] text-brand-cyan uppercase tracking-widest block font-bold">NODE PARAMETERS</span>
+                           <div><span className="text-white">NODE ID:</span> <span className="font-mono text-white/80">{intelDetailMedia.id || 'N/A'}</span></div>
+                           <div><span className="text-white">LABEL:</span> <span className="font-mono text-white/80">{intelDetailMedia.name}</span></div>
+                           <div className="truncate"><span className="text-white">ENDPOINT:</span> <span className="font-mono text-brand-green/85 text-[9px]">{intelDetailMedia.url}</span></div>
+                        </div>
+                        <div className="space-y-1.5 text-[10px] text-white/50 border-t md:border-t-0 md:border-l border-white/10 pt-3 md:pt-0 md:pl-4">
+                           <span className="text-[8px] text-brand-cyan uppercase tracking-widest block font-bold">PHYSICAL TOPOLOGY</span>
+                           <div><span className="text-white">TAXONOMY:</span> <span className="text-white/80 uppercase">{intelDetailMedia.type.replace('_', ' ')}</span></div>
+                           <div><span className="text-white">COORDINATES:</span> <span className="font-mono text-brand-cyan">{intelDetailMedia.lat?.toFixed(5) || '0.00000'}, {intelDetailMedia.lng?.toFixed(5) || '0.00000'}</span></div>
+                           <div><span className="text-white">EST. LATENCY:</span> <span className="text-brand-green">{intelDetailMedia.latency ? `${intelDetailMedia.latency}ms` : '32ms'}</span></div>
+                        </div>
+                     </div>
+
+                     {/* Content Block */}
+                     <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-white/95 text-[10px] font-black uppercase tracking-widest border-b border-brand-green/20 pb-1.5">
+                           <Terminal className="w-3.5 h-3.5 text-brand-green" />
+                           Declassified Telemetry Analytics
+                        </div>
+                        
+                        <div className="p-5 rounded-xl border border-brand-green/10 bg-brand-green/[0.02] text-[10.5px] leading-relaxed relative overflow-hidden text-white/90">
+                           <div className="absolute top-0 right-0 p-3 text-brand-green/10 pointer-events-none">
+                              <Shield className="w-24 h-24" />
+                           </div>
+                           {intelLoading ? (
+                             <div className="flex flex-col items-center justify-center py-12 gap-3 text-brand-green/75">
+                                <RefreshCw className="w-6 h-6 animate-spin" />
+                                <span className="text-[10px] font-mono uppercase tracking-widest animate-pulse">Running real-time declassification models...</span>
+                             </div>
+                           ) : intelBrief ? (
+                             <div className="space-y-1 font-mono">
+                                {renderCyberMarkdown(intelBrief)}
+                             </div>
+                           ) : (
+                             <div className="flex flex-col items-center justify-center py-12 gap-2 text-white/40">
+                                <AlertCircle className="w-6 h-6 text-yellow-500 animate-pulse" />
+                                <span className="text-[10px] font-mono uppercase italic">Forensic intelligence not found in standard registry.</span>
+                                <button 
+                                  onClick={() => fetchIntel(intelDetailMedia)}
+                                  className="mt-3 px-3 py-1.5 border border-brand-green/30 hover:border-brand-green text-[9px] rounded-lg text-brand-green hover:bg-brand-green/5 transition-all text-center"
+                                >
+                                   TRIGGER REALTIME FORENSIC ANALYTICS
+                                </button>
+                             </div>
+                           )}
                         </div>
                      </div>
                   </div>

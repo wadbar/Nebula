@@ -4,19 +4,42 @@
   --color-brand-green: #00FF41;
   --color-brand-cyan: #00f2ff;
   --color-brand-red: #ff3c3c;
+  --color-brand-purple: #bb86fc;
   --color-panel-bg: #111111;
+  --color-panel-hover: #181818;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Inter", "Space Grotesk", system-ui, sans-serif;
 
   @keyframes scan {
     0% { transform: translateY(-100%); }
     100% { transform: translateY(400%); }
   }
+  
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 1; filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.4)); }
+    50% { opacity: 0.6; filter: drop-shadow(0 0 2px rgba(0, 255, 65, 0.1)); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
   --animate-scan: scan 2s linear infinite;
+  --animate-pulse-glow: pulseGlow 2.5s ease-in-out infinite;
+  --animate-float: float 4s ease-in-out infinite;
 }
 
 @layer base {
   body {
-    @apply bg-[#050505] text-[#e0e0e0] font-sans selection:bg-brand-green/30 h-screen overflow-hidden;
+    @apply bg-[#050505] text-[#e0e0e0] font-sans selection:bg-brand-green/30 h-screen overflow-hidden antialiased;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-green/50 ring-offset-2 ring-offset-[#050505] transition-shadow;
   }
 }
 
@@ -25,8 +48,16 @@
     @apply bg-panel-bg rounded-[2rem] border border-white/5 relative overflow-hidden transition-all duration-300;
   }
 
+  .bento-card:hover {
+    @apply border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.12)] bg-panel-hover;
+  }
+
   .bento-card-active {
     @apply border-brand-green/20 ring-1 ring-brand-green/10 shadow-[0_0_30px_rgba(0,255,65,0.05)];
+  }
+
+  .glass-panel {
+    @apply bg-[#111111]/80 backdrop-blur-xl border border-white/5 shadow-2xl;
   }
 
   .tech-grid {
@@ -34,22 +65,28 @@
       linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
       linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
     background-size: 40px 40px;
+    background-position: center center;
   }
 
   .scanline {
-    @apply fixed inset-0 pointer-events-none z-50 opacity-[0.03];
+    @apply fixed inset-0 pointer-events-none z-50 opacity-[0.03] mix-blend-overlay;
     background: linear-gradient(to bottom, transparent 50%, rgba(0, 255, 65, 0.1) 50%);
     background-size: 100% 4px;
   }
 
+  .global-input-class {
+    @apply w-full bg-black/50 border border-white/10 rounded-2xl px-5 py-4 focus:border-brand-green/40 focus:ring-1 focus:ring-brand-green/40 transition-all text-white placeholder:text-gray-600 font-medium;
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
+    width: 6px;
+    height: 6px;
   }
   .custom-scrollbar::-webkit-scrollbar-track {
     @apply bg-transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-white/10 rounded-full;
+    @apply bg-white/10 rounded-full border-[1px] border-transparent bg-clip-padding;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     @apply bg-brand-green/30;
@@ -58,5 +95,9 @@
   .terminal-text {
     @apply font-mono text-xs leading-relaxed;
     text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+  }
+
+  .pill-badge {
+    @apply px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs font-mono font-medium tracking-wide flex items-center space-x-1.5 backdrop-blur-md;
   }
 }
