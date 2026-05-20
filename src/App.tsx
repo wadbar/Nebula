@@ -2819,22 +2819,9 @@ export default function App() {
             )}
           </AnimatePresence>
 
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-            <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shrink-0 relative group self-start lg:self-auto overflow-x-auto max-w-full">
-              <div className="absolute -top-5 left-0 text-[6px] font-black text-brand-green/30 tracking-[0.3em] uppercase opacity-0 group-hover:opacity-100 transition-opacity">ULTIMATE_RESONANCE_V1_ACTIVE</div>
-               {(['SURFACE_SEARCH', 'DEEP_SEARCH', 'DEEP_WEB_SEARCH', 'ADVANCED_NETWORK'] as const).map((e, idx) => (
-                 <button 
-                   key={e}
-                   onClick={() => setActiveService(e)}
-                   title={e === 'DEEP_WEB_SEARCH' ? 'Hyper Resonance + Torrent Index' : e === 'ADVANCED_NETWORK' ? 'Advanced Network Discovery (CoCoScraper+Vite)' : e === 'DEEP_SEARCH' ? 'Deep Forensic Extraction' : 'Surface OSINT Discovery'}
-                   className={`px-3 py-2 rounded-lg text-[8px] font-black tracking-widest transition-all whitespace-nowrap ${activeService === e ? 'bg-brand-green/20 text-brand-green border border-brand-green/20 shadow-[0_0_10px_rgba(0,255,65,0.1)]' : 'text-white/20 hover:text-white/40'}`}
-                 >
-                   {e === 'DEEP_WEB_SEARCH' ? 'LAYER_TORCH' : e === 'ADVANCED_NETWORK' ? 'LAYER_ULTIMATE' : `LAYER_${idx}`}
-                 </button>
-               ))}
-            </div>
-            <div className="flex-1 flex items-center gap-4">
-              <form onSubmit={handleSearch} className="flex-1 relative group">
+          {/* Discovery Results - Keep this in focus */}
+          <div className="flex flex-col gap-4 flex-1">
+             <div className="relative group">
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -2854,84 +2841,26 @@ export default function App() {
                   <span className="hidden sm:inline">Deep Scan</span>
                   <span className="sm:hidden">SCAN</span>
                 </button>
-                
-                <AnimatePresence>
-                {showSuggestions && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-[#080b0e] border border-white/10 rounded-2xl overflow-hidden z-50 shadow-2xl"
-                  >
-                    <div className="max-h-64 overflow-y-auto">
-                      {searchHistory.filter(h => h.toLowerCase().includes(query.toLowerCase())).length > 0 && (
-                        <div className="p-2 border-b border-white/5">
-                          <div className="px-3 py-2 text-[10px] font-black tracking-widest text-brand-cyan/60 uppercase flex items-center gap-2">
-                            <Clock className="w-3 h-3" /> Recent Signals
-                          </div>
-                          {searchHistory.filter(h => h.toLowerCase().includes(query.toLowerCase())).map((item, idx) => (
-                            <div 
-                               key={`hist-${idx}`}
-                               onMouseDown={(e) => { e.preventDefault(); setQuery(item); setShowSuggestions(false); setTimeout(() => handleSearch(undefined, item), 0); }}
-                               className="px-3 py-2.5 text-sm text-white/80 hover:text-white hover:bg-white/5 cursor-pointer rounded-lg flex items-center gap-3 transition-colors font-mono"
-                            >
-                               <Search className="w-3.5 h-3.5 text-white/40" />
-                               {item}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      <div className="p-2">
-                        <div className="px-3 py-2 text-[10px] font-black tracking-widest text-brand-green/60 uppercase flex items-center gap-2">
-                          <TrendingUp className="w-3 h-3" /> Global Activity
-                        </div>
-                        {TRENDING_QUERIES.filter(t => t.toLowerCase().includes(query.toLowerCase())).map((item, idx) => (
-                          <div 
-                             key={`trend-${idx}`}
-                             onMouseDown={(e) => { e.preventDefault(); setQuery(item); setShowSuggestions(false); setTimeout(() => handleSearch(undefined, item), 0); }}
-                             className="px-3 py-2.5 text-sm text-white/80 hover:text-brand-green hover:bg-brand-green/5 cursor-pointer rounded-lg flex items-center gap-3 transition-colors font-mono group/item"
-                          >
-                             <Search className="w-3.5 h-3.5 text-white/40 group-hover/item:text-brand-green transition-colors" />
-                             {item}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-                </AnimatePresence>
-              </form>
-              <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shrink-0">
-                 <button 
-                   onClick={() => setViewMode('list')}
-                   className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white/10 text-brand-green ring-1 ring-brand-green/20' : 'text-white/20 hover:text-white'}`}
-                   title="List View"
-                 >
-                   <List className="w-4 h-4" />
-                 </button>
-                 <button 
-                   onClick={() => setViewMode('matrix')}
-                   className={`p-2 rounded-lg transition-all ${viewMode === 'matrix' ? 'bg-white/10 text-brand-cyan ring-1 ring-brand-cyan/20' : 'text-white/20 hover:text-white'}`}
-                   title="Grid View"
-                 >
-                   <Grid className="w-4 h-4" />
-                 </button>
-              </div>
-            </div>
+             </div>
+             
+             {/* GeoSearchController moved here, collapsed by default */}
+             <details className="bg-white/5 rounded-2xl p-2 border border-white/5">
+                <summary className="text-[10px] uppercase font-black text-white/50 tracking-widest p-2 cursor-pointer outline-none">Configurações de Localização (Mapa)</summary>
+                <div className="p-2">
+                    <GeoSearchController
+                        isGeoLocked={isGeoLocked}
+                        setIsGeoLocked={setIsGeoLocked}
+                        userHub={userHub}
+                        setUserHub={setUserHub}
+                        userCoords={userCoords}
+                        setUserCoords={setUserCoords}
+                        maxScope={maxScope}
+                        setMaxScope={setMaxScope}
+                        addLog={addLog}
+                    />
+                </div>
+             </details>
           </div>
-
-          <GeoSearchController
-            isGeoLocked={isGeoLocked}
-            setIsGeoLocked={setIsGeoLocked}
-            userHub={userHub}
-            setUserHub={setUserHub}
-            userCoords={userCoords}
-            setUserCoords={setUserCoords}
-            maxScope={maxScope}
-            setMaxScope={setMaxScope}
-            addLog={addLog}
-          />
 
           <div className="flex flex-wrap items-center gap-4 border-b border-white/5 pb-4">
               <span className="text-[10px] text-white/40 font-black tracking-widest uppercase items-center flex gap-1">

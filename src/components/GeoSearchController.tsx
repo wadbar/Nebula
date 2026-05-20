@@ -483,7 +483,7 @@ export default function GeoSearchController({
               <span className="text-[9px] font-black text-white/50 uppercase tracking-widest ">Seletor de Localização (Mapa)</span>
               
               <div className="h-40 rounded-lg overflow-hidden border border-white/10 group-hover:border-brand-green/30 transition-all">
-                <MapContainer center={[userCoords.lat, userCoords.lng]} zoom={13} className="h-full w-full">
+                <MapContainer key={`${userCoords.lat}-${userCoords.lng}`} center={[userCoords.lat, userCoords.lng]} zoom={13} className="h-full w-full">
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

@@ -41,12 +41,17 @@ export default function ShortcutManager({
   useEffect(() => {
     if (!editingId) return;
 
-    const handleKeyCapture = (e: KeyboardEvent) => {
+      const handleKeyCapture = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
-      const newCode = e.code;
-      if (!newCode) return;
+      let newCode = "";
+      if (e.ctrlKey) newCode += "Ctrl+";
+      if (e.altKey) newCode += "Alt+";
+      if (e.shiftKey) newCode += "Shift+";
+      newCode += e.code;
+      
+      if (!e.code) return;
 
       // Check duplicate biddings
       const isDuplicated = shortcuts.find(s => s.currentCode === newCode && s.id !== editingId);

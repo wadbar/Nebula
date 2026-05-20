@@ -363,7 +363,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
              const data = await response.json() as { results?: Array<{ trackId?: number; trackName?: string; collectionName?: string; previewUrl?: string; kind?: string; primaryGenreName?: string; artistName?: string }> };
              data.results?.forEach((item) => {
                 if (item.previewUrl) {
-                  osIntSignals.push({ id: `itunes-${item.trackId || Date.now()}`, name: item.trackName || item.collectionName || 'Unknown', url: item.previewUrl, type: item.kind === 'song' ? 'audio' : (item.kind === 'feature-movie' || item.kind === 'tv-episode' ? 'video' : 'media'), category: item.primaryGenreName || 'iTunes Media', description: `[iTunes API] ${item.artistName} - ${item.collectionName || ''}`, service: 'ITUNES_API', relevance_score: 0.9 });
+                  osIntSignals.push({ id: `itunes-${item.trackId || uuidv4()}`, name: item.trackName || item.collectionName || 'Unknown', url: item.previewUrl, type: item.kind === 'song' ? 'audio' : (item.kind === 'feature-movie' || item.kind === 'tv-episode' ? 'video' : 'media'), category: item.primaryGenreName || 'iTunes Media', description: `[iTunes API] ${item.artistName} - ${item.collectionName || ''}`, service: 'ITUNES_API', relevance_score: 0.9 });
                 }
              });
           }

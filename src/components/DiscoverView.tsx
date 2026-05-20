@@ -13,41 +13,32 @@ export const DiscoverView = ({ playMedia }: { playMedia: (m: MediaResult) => voi
 
   useEffect(() => {
     let isMounted = true;
-    const fetchRealData = async () => {
+    const fetchApiData = async () => {
       try {
         setIsLoading(true);
         setError(null);
         
         const [trendingRes, curatedRes] = await Promise.all([
-          fetch('https://de1.api.radio-browser.info/json/stations/topvote/8'),
-          fetch('https://de1.api.radio-browser.info/json/stations/topclick/8')
+          fetch('/api/discover', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: 'trending media' })
+          }),
+          fetch('/api/discover', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: 'curated audio streams' })
+          })
         ]);
 
-        if (!trendingRes.ok || !curatedRes.ok) throw new Error('Failed to fetch global signals.');
+        if (!trendingRes.ok || !curatedRes.ok) throw new Error('Failed to fetch discovered signals.');
 
         const trendingData = await trendingRes.json();
         const curatedData = await curatedRes.json();
 
         if (isMounted) {
-          setTrending(trendingData.map((s: any) => ({
-            id: s.stationuuid,
-            name: s.name.trim() || 'Unknown Signal',
-            url: s.url_resolved || s.url,
-            type: 'audio_stream',
-            category: s.tags ? s.tags.split(',')[0].trim() : 'Live Radio',
-            description: `Codec: ${s.codec} | Bitrate: ${s.bitrate}kbps`,
-            tags: s.tags ? s.tags.split(',') : []
-          })));
-
-          setCurated(curatedData.map((s: any) => ({
-            id: s.stationuuid,
-            name: s.name.trim() || 'Unknown Node',
-            url: s.url_resolved || s.url,
-            type: 'audio_stream',
-            category: s.tags ? s.tags.split(',')[0].trim() : 'Curated',
-            description: `Country: ${s.country} | Votes: ${s.votes}`,
-            tags: s.tags ? s.tags.split(',') : []
-          })));
+          setTrending(trendingData);
+          setCurated(curatedData);
         }
       } catch (err: any) {
         if (isMounted) setError(err.message || 'Signal interception failed');
@@ -56,7 +47,7 @@ export const DiscoverView = ({ playMedia }: { playMedia: (m: MediaResult) => voi
       }
     };
 
-    fetchRealData();
+    fetchApiData();
     return () => { isMounted = false; };
   }, []);
 
@@ -116,14 +107,14 @@ export const DiscoverView = ({ playMedia }: { playMedia: (m: MediaResult) => voi
           <section>
             <h3 className="text-sm font-black text-white/40 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-brand-green" /> TRENDING_SIGNALS (GLOBAL TOP VOTES)</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {trending.map(item => <MediaCard key={item.id} item={item} />)}
+              {trending.map((item, index) => <MediaCard key={`trending-${item.id}-${index}`} item={item} />)}
             </div>
           </section>
 
           <section>
             <h3 className="text-sm font-black text-white/40 mb-4 flex items-center gap-2"><Star className="w-4 h-4 text-yellow-500" /> CURATED_TUNNELS (MOST ACTIVE)</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {curated.map(item => <MediaCard key={item.id} item={item} />)}
+              {curated.map((item, index) => <MediaCard key={`curated-${item.id}-${index}`} item={item} />)}
             </div>
           </section>
         </>
