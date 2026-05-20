@@ -64,14 +64,9 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Hls from "hls.js";
-import { APIProvider, Map } from '@vis.gl/react-google-maps';
-
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
 
 import { DownloadTask, MediaResult, ValidationResult, LogEntry, Playlist } from './types';
-const DARK_MAP_ID = "dark_network_v1";
 
-import { NetworkMap } from './components/NetworkMap';
 import { DiscoverView } from './components/DiscoverView';
 import { PlaylistViewer } from './components/PlaylistViewer';
 import { DownloadManager } from './components/DownloadManager';
@@ -694,6 +689,7 @@ export default function App() {
     const saved = localStorage.getItem('nebula_volume');
     return saved ? parseFloat(saved) : 0.5;
   });
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
   useEffect(() => {
     localStorage.setItem('nebula_volume', volume.toString());
@@ -703,9 +699,9 @@ export default function App() {
   const [terminalInput, setTerminalInput] = useState("");
   const [terminalLogs, setTerminalLogs] = useState<{role: 'user' | 'system', text: string}[]>([]);
   const [systemLogs, setSystemLogs] = useState<LogEntry[]>([]);
-  const [streamQuality, setStreamQuality] = useState<"low" | "med" | "high" | "auto">(() => {
+  const [streamQuality, setStreamQuality] = useState<"bandwidth" | "balanced" | "resolution">(() => {
     const saved = localStorage.getItem('nebula_stream_quality');
-    return (saved as "low" | "med" | "high" | "auto") || "auto";
+    return (saved as "bandwidth" | "balanced" | "resolution") || "balanced";
   });
 
   useEffect(() => {
@@ -1169,6 +1165,11 @@ export default function App() {
   }, [volume]);
 
   // Sync playback speed
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = playbackSpeed;
+    if (videoRef.current) videoRef.current.playbackRate = playbackSpeed;
+  }, [playbackSpeed]);
+
   // Simulated live security logs
   useEffect(() => {
     if (!currentMedia) return;
@@ -1190,16 +1191,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [currentMedia]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7) {
-        const routes = ["TOR_NODE_DE", "I2P_EXIT_US", "ONION_RELAY_FR", "AES_V4_ENC"];
-        const route = routes[Math.floor(Math.random() * routes.length)];
-        addLog(`Packet routed via ${route}: Integrity verified`, "security");
-      }
-    }, 4500);
-    return () => clearInterval(interval);
-  }, []);
+
 
   const addLog = (text: string, type: LogEntry['type'] = 'info') => {
     setSystemLogs(prev => [...prev.slice(-15), {
@@ -1231,19 +1223,6 @@ export default function App() {
     addLog(`[ULTIMATE_UPGRADE] NEBULA_STANDARD_V1_ACTIVE`, "security");
     addLog(`[RESONANCE] CALCULATING ULTIMATE-VECTORS [V1] FOR: "${finalQuery}"`, "info");
     
-    const steps = [
-      "ULTIMATE_RESONANCE_SCAN_V1: ASSIMILATING COCOSCRAPER & UNIVERSAL ARCHITECTURES...",
-      "SPECTRAL_ISOLATION: INITIALIZING ULTIMATE-TV & CINEMA CORE VALIDATION...",
-      activeService === "DEEP_WEB_SEARCH" 
-        ? "TORCH_AHMIA_RESONANCE: PENETRATING DECENTRALIZED ONION INDEXES..."
-        : activeService === "ADVANCED_NETWORK"
-          ? "ADVANCED_NETWORK_PROBE: SYNCHRONIZING SIGMA & EPSILON VECTORS..."
-          : "DEEP_VAULT_PROBE: SIMULATING UNIVERSAL MOVIE SCRAPER [TMDb/XEM]...",
-      "SIGNAL_HARMONIZATION: EXFILTRATING REAL-DEBRID & P2P MANIFESTS...",
-      "SMART_FORENSICS: VALIDATING ULTIMATE V1 SCHEMA & MAGNET RESOLUTION...",
-      "ULTIMATE_TUNNEL_LOGGED: SECURING ADVANCED-SAFE ENCRYPTED PATHS..."
-    ];
-
     try {
       let searchType = activeCategory !== "All" ? activeCategory : activeTab;
       if (searchType === "favorites" || searchType === "history" || searchType === "playlists") {
@@ -1258,14 +1237,6 @@ export default function App() {
         body: JSON.stringify({ query: finalQuery }),
         signal: searchController.current!.signal
       });
-
-      for (let i = 0; i < steps.length; i++) {
-        if (searchController.current!.signal.aborted) throw new DOMException('Aborted', 'AbortError');
-        setScannerStep(i + 1);
-        setScanProgress(((i + 1) / steps.length) * 100);
-        addLog(`[CORE] ${steps[i]}`, i === steps.length - 1 ? "success" : "info");
-        await new Promise(r => setTimeout(r, 600));
-      }
 
       const translateRes = await translationPromise;
       const translateData = await translateRes.json();
@@ -1732,13 +1703,13 @@ export default function App() {
     }
   };
 
-  const applyQualityToHls = (hls: Hls, quality: "low" | "med" | "high" | "auto") => {
+  const applyQualityToHls = (hls: Hls, quality: "bandwidth" | "balanced" | "resolution") => {
     if (!hls.levels || hls.levels.length === 0) return;
 
-    if (quality === "auto") {
+    if (quality === "balanced") {
       hls.currentLevel = -1; // hls.js auto back to ABR
       hls.loadLevel = -1;
-      addLog(`[HLS] Automatic quality adaptation enabled.`, "info");
+      addLog(`[HLS] Automatic quality adaptation (Balanced) enabled.`, "info");
       return;
     }
     
@@ -1747,9 +1718,8 @@ export default function App() {
     let targetIdx = -1;
 
     // Use bitrate for selection
-    if (quality === "low") targetIdx = 0;
-    else if (quality === "high") targetIdx = levels.length - 1;
-    else targetIdx = Math.floor(levels.length / 2);
+    if (quality === "bandwidth") targetIdx = 0;
+    else if (quality === "resolution") targetIdx = levels.length - 1;
 
     const targetHlsLevelIndex = hls.levels.indexOf(levels[targetIdx]);
     
@@ -1832,9 +1802,9 @@ export default function App() {
 
     if (input.startsWith('quality ')) {
       const q = input.split(' ')[1] as any;
-      if (['low', 'med', 'high'].includes(q)) {
+      if (['bandwidth', 'balanced', 'resolution'].includes(q)) {
         setStreamQuality(q);
-        return `SYSTEM_RES: BANDWIDTH_UPPER_BOUND_SET_TO_${q.toUpperCase()}`;
+        return `SYSTEM_RES: STREAM_PRIORITY_SET_TO_${q.toUpperCase()}`;
       }
     }
     
@@ -2062,7 +2032,19 @@ export default function App() {
       const url = window.URL.createObjectURL(combined);
       const a = document.createElement('a');
       a.href = url;
-      a.download = task.media.name || 'download';
+      
+      // Determine file extension
+      let ext = '';
+      if (!task.media.name.includes('.')) {
+         if (task.media.type === 'video' || task.media.type === 'video_stream' || task.media.type === 'tv' || task.media.type === 'live_cam') ext = '.mp4';
+         else if (task.media.type === 'audio' || task.media.type === 'radio' || task.media.type === 'audio_stream') ext = '.mp3';
+         else if (task.media.type === 'image') ext = '.jpg';
+         else if (task.media.type === 'document' || task.media.type === 'book') ext = '.pdf';
+         else if (task.media.type === 'rom') ext = '.bin';
+         else ext = '.bin';
+      }
+
+      a.download = (task.media.name || 'download') + ext;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {
@@ -2237,11 +2219,23 @@ export default function App() {
           break;
         case 'ArrowRight':
           e.preventDefault();
-          handleSkip();
+          if (e.shiftKey) {
+            handleSkip();
+          } else {
+            if (videoRef.current) {
+              videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + 10);
+            }
+          }
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          handleSkipBackward();
+          if (e.shiftKey) {
+             handleSkipBackward();
+          } else {
+            if (videoRef.current) {
+              videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
+            }
+          }
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -2331,62 +2325,6 @@ export default function App() {
       }
     };
   }, [displayedResults, visibleCount]);
-
-  const MapOverlay = () => {
-    if (!GOOGLE_MAPS_API_KEY) {
-      return (
-        <div className="w-full h-full bg-black/40 flex flex-col items-center justify-center p-6 text-center border border-white/5 rounded-2xl">
-          <Shield className="w-8 h-8 text-white/20 mb-4" />
-          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Maps API Key Required</p>
-          <p className="text-[8px] text-white/20 uppercase max-w-[200px]">Provide GOOGLE_MAPS_PLATFORM_KEY in settings to enable global network visualization.</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="w-full h-full rounded-2xl overflow-hidden border border-white/10 relative">
-        <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
-          <Map
-            defaultCenter={{ lat: 20, lng: 0 }}
-            defaultZoom={1}
-            mapId={DARK_MAP_ID}
-            gestureHandling={'greedy'}
-            disableDefaultUI={true}
-            internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
-            style={{ width: '100%', height: '100%' }}
-          >
-            <NetworkMap 
-              nodes={validationData?.nodes || []} 
-              results={results}
-              active={true}
-              onSelect={(item) => playMedia(item)}
-            />
-          </Map>
-        </APIProvider>
-        <div className="absolute top-2 left-2 flex items-center gap-2 bg-black/60 px-2 py-1 rounded border border-white/10 backdrop-blur-md">
-           <Globe className="w-2.5 h-2.5 text-brand-green animate-pulse" />
-           <span className="text-[8px] font-black text-brand-green uppercase tracking-widest">Global_Network_Distribution</span>
-        </div>
-        
-        <div className="absolute bottom-2 left-2 bg-black/80 p-2 rounded-lg border border-white/5 backdrop-blur-md max-w-[120px]">
-           <div className="flex items-center justify-between text-[7px] font-mono text-white/40 mb-1">
-              <span>ACTIVE_NODES:</span>
-              <span className="ml-2 text-brand-green">{results.filter(r => r.health === 'optimal').length}</span>
-           </div>
-           <div className="flex items-center justify-between text-[7px] font-mono text-white/40">
-              <span>DEGRADED:</span>
-              <span className="ml-2 text-yellow-500">{results.filter(r => r.health !== 'optimal' && r.health !== 'broken').length}</span>
-           </div>
-        </div>
-
-        {validationData && (
-          <div className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded border border-brand-green/20 backdrop-blur-md">
-             <span className="text-[8px] font-mono text-brand-green uppercase">{validationData.consensus_nodes} VALIDATOR_NODES_LOCALIZED</span>
-          </div>
-        )}
-      </div>
-    );
-  };
 
             {/* Playlist Viewer - replaced with external component */}
             <PlaylistViewer 
@@ -3061,12 +2999,36 @@ export default function App() {
               <div className="flex-1 grid grid-cols-1 gap-4">
                  {currentMedia ? (
     <>
-    <div className="flex-1 grid grid-cols-1 bg-black/40 rounded-2xl border border-dashed border-white/20 relative items-center justify-center overflow-hidden">
-        {isVideoFloating && !isVideoMinimized && (
-            <div className="absolute inset-0 z-10 bg-black/80 flex items-center justify-center opacity-80">
-                <span className="text-[10px] font-mono text-white/50 uppercase tracking-widest">Feed Detached</span>
-            </div>
-        )}
+    {isVideoFloating && !isVideoMinimized && (
+       <div className="flex-1 grid grid-cols-1 bg-black/40 rounded-2xl border border-dashed border-white/20 relative items-center justify-center overflow-hidden">
+           <div className="absolute inset-0 z-10 bg-black/80 flex flex-col items-center justify-center opacity-80 gap-3">
+               <span className="text-[10px] font-mono text-white/50 uppercase tracking-widest">Feed Detached</span>
+               <button onClick={() => setIsVideoFloating(false)} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-[10px] font-mono uppercase text-white transition-colors">Dock Feed</button>
+           </div>
+       </div>
+    )}
+    <motion.div 
+        drag={isVideoFloating}
+        dragMomentum={false}
+        initial={false}
+        animate={
+          isVideoMinimized ? { scale: 0, opacity: 0, y: 100 } :
+          isVideoFloating ? { scale: 1, opacity: 1, position: 'fixed', bottom: 120, right: 20, zIndex: 110, width: "360px", height: "auto", y: 0, aspectRatio: '16/9' } :
+          { scale: 1, opacity: 1, position: 'relative', width: '100%', height: '100%', bottom: 'auto', right: 'auto', zIndex: 1, y: 0 }
+        }
+        className={`${isVideoFloating ? "shadow-2xl border border-brand-green/40 cursor-move backdrop-blur-2xl rounded-xl" : "flex-1 rounded-2xl"} grid grid-cols-1 bg-black/40 border-dashed border-white/20 relative items-center justify-center overflow-hidden group/video`}
+    >
+        {/* Detach / Minimize Controls */}
+        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/video:opacity-100 transition-opacity z-50">
+          {isVideoFloating && (
+            <button onClick={() => setIsVideoMinimized(true)} className="p-1.5 bg-black/60 hover:bg-black/90 rounded border border-white/10 text-white/50 hover:text-white backdrop-blur" title="Minimize to tray">
+              <Command className="w-3 h-3" />
+            </button>
+          )}
+          <button onClick={() => setIsVideoFloating(!isVideoFloating)} className="p-1.5 bg-black/60 hover:bg-black/90 rounded border border-white/10 text-white/50 hover:text-white backdrop-blur" title={isVideoFloating ? "Dock Video" : "Detach Video"}>
+            {isVideoFloating ? <ChevronRight className="w-3 h-3" /> : <ExternalLink className="w-3 h-3" />}
+          </button>
+        </div>
         
         {/* Render media based on type */}
         {['radio', 'audio', 'audio_stream'].includes(currentMedia.type) ? (
@@ -3126,19 +3088,30 @@ export default function App() {
                 {['video', 'video_stream', 'tv', 'live_cam', 'media'].includes(currentMedia.type) && (
                   <div className="flex justify-between items-end mb-2">
                      <div className="flex bg-black/60 backdrop-blur border border-white/10 rounded-lg p-1 text-[8px] font-black uppercase overflow-hidden">
-                       <button onClick={() => setStreamQuality('auto')} className={`px-2 py-1 rounded transition-colors ${streamQuality === 'auto' ? 'bg-brand-green text-black' : 'text-white/50 hover:text-white'}`}>Auto</button>
-                       <button onClick={() => setStreamQuality('low')} className={`px-2 py-1 rounded transition-colors ${streamQuality === 'low' ? 'bg-brand-green text-black' : 'text-white/50 hover:text-white'}`}>Low</button>
-                       <button onClick={() => setStreamQuality('med')} className={`px-2 py-1 rounded transition-colors ${streamQuality === 'med' ? 'bg-brand-green text-black' : 'text-white/50 hover:text-white'}`}>Med</button>
-                       <button onClick={() => setStreamQuality('high')} className={`px-2 py-1 rounded transition-colors ${streamQuality === 'high' ? 'bg-brand-green text-black' : 'text-white/50 hover:text-white'}`}>High</button>
+                       <button onClick={() => setStreamQuality('balanced')} className={`px-2 py-1 rounded transition-colors ${streamQuality === 'balanced' ? 'bg-brand-green text-black' : 'text-white/50 hover:text-white'}`} title="Auto Bitrate ABR">Balanced</button>
+                       <button onClick={() => setStreamQuality('bandwidth')} className={`px-2 py-1 rounded transition-colors ${streamQuality === 'bandwidth' ? 'bg-brand-green text-black' : 'text-white/50 hover:text-white'}`} title="Prioritize Bandwidth (Low Res)">Bandwidth</button>
+                       <button onClick={() => setStreamQuality('resolution')} className={`px-2 py-1 rounded transition-colors ${streamQuality === 'resolution' ? 'bg-brand-green text-black' : 'text-white/50 hover:text-white'}`} title="Prioritize Resolution (Max Quality)">Resolution</button>
                      </div>
                   </div>
                 )}
                 <div className="flex items-center gap-4">
                   <button 
+                    onClick={handleSkipBackward}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <SkipBack className="w-4 h-4" />
+                  </button>
+                  <button 
                     onClick={handleTogglePlayback}
-                    className="text-white hover:text-brand-green"
+                    className="text-white hover:text-brand-green transition-colors"
                   >
                     {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                  </button>
+                  <button 
+                    onClick={handleSkip}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <SkipForward className="w-4 h-4" />
                   </button>
                   
                   {currentMedia.type === 'live_cam' ? (
@@ -3170,10 +3143,23 @@ export default function App() {
                         value={currentTime || 0} 
                         onChange={(e) => {
                           if(videoRef.current) videoRef.current.currentTime = parseFloat(e.target.value);
+                          if(audioRef.current) audioRef.current.currentTime = parseFloat(e.target.value);
                         }}
                         className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-brand-green"
                       />
                       <span className="text-white text-xs font-mono w-10">{formatTime(duration)}</span>
+                      
+                      <div className="flex bg-black/60 backdrop-blur border border-white/10 rounded-lg p-0.5 text-[10px] font-black tracking-tighter">
+                        {[0.5, 1, 1.5, 2].map(speed => (
+                          <button
+                            key={speed}
+                            onClick={() => setPlaybackSpeed(speed)}
+                            className={`px-1.5 py-0.5 rounded transition-colors ${playbackSpeed === speed ? 'bg-brand-green text-black' : 'text-white/50 hover:text-white'}`}
+                          >
+                            {speed}x
+                          </button>
+                        ))}
+                      </div>
                     </>
                   )}
 
@@ -3196,16 +3182,18 @@ export default function App() {
         )}
                       
                        {isSubtitleEnabled && (subtitles || isGeneratingSubtitles) && (
-                          <div className="absolute bottom-4 left-4 right-4 bg-black/70 p-2 text-center text-xs font-mono text-white rounded backdrop-blur-sm border border-white/10">
-                              {isGeneratingSubtitles ? "Generating subtitles..." : subtitles}
+                          <div className="absolute bottom-4 left-4 right-4 bg-black/70 p-2 text-center text-xs font-mono text-white rounded backdrop-blur-sm border border-brand-cyan/30 z-[60]">
+                              {isGeneratingSubtitles ? "Intercepting & Decoding Audio..." : subtitles}
                           </div>
                       )}
                       
-                      <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/60 px-2 py-1 rounded">
-                        <div className={`w-1.5 h-1.5 rounded-full ${isReconnecting ? 'bg-red-500 animate-pulse' : 'bg-brand-green animate-pulse'}`} />
-                        <span className="text-[8px] font-mono opacity-80 uppercase tracking-tighter">
-                          {isReconnecting ? 'RECONNECTING_SIGNAL...' : `LIVE_FEED: ${currentMedia.name}`}
-                        </span>
+                      <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/60 px-2 flex-col items-start py-1 rounded">
+                        <div className="flex items-center gap-2">
+                           <div className={`w-1.5 h-1.5 rounded-full ${isReconnecting ? 'bg-red-500 animate-pulse' : 'bg-brand-green animate-pulse'}`} />
+                           <span className="text-[8px] font-mono opacity-80 uppercase tracking-tighter truncate max-w-[150px]">
+                             {isReconnecting ? 'RECONNECTING_SIGNAL...' : `LIVE_FEED: ${currentMedia.name}`}
+                           </span>
+                        </div>
                       </div>
                       <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         {/* Technical Metadata Overlay */}
@@ -3252,7 +3240,7 @@ export default function App() {
                         </div>
                       )}
                       
-                     </div>
+                     </motion.div>
                       
                       <AnimatePresence>
                         {showMediaInfoOverlay && currentMedia && (
@@ -3371,61 +3359,14 @@ export default function App() {
                       </AnimatePresence>
                     </>
                  ) : (
-                   <div className="flex-1 bg-black/40 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col items-center justify-center p-8 group">
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,255,65,0.08),transparent)] animate-pulse" />
-                      <div className="relative z-10 flex flex-col items-center gap-8">
-                         <div className="relative w-32 h-32">
-                            <motion.div 
-                              animate={{ rotate: 360 }}
-                              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                              className="absolute inset-0 border-[3px] border-dashed border-brand-green/30 rounded-full"
-                            />
-                            <motion.div 
-                              animate={{ rotate: -360 }}
-                              transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                              className="absolute inset-4 border-2 border-dashed border-brand-cyan/20 rounded-full"
-                            />
-                            <motion.div 
-                              animate={{ scale: [1, 1.1, 1] }}
-                              transition={{ duration: 2, repeat: Infinity }}
-                              className="absolute inset-8 border border-brand-green/40 rounded-full bg-brand-green/5"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                               <Shield className="w-12 h-12 text-brand-green group-hover:scale-110 transition-transform duration-500" />
-                            </div>
-                         </div>
-                         <div className="flex flex-col items-center gap-3">
-                            <h4 className="text-[12px] font-black text-white/60 uppercase tracking-[0.5em]">Ultimate_Core_Active_V1</h4>
-                            <div className="flex gap-2">
-                               {[1,2,3,4,5,6,7,8,9].map(i => (
-                                 <motion.div 
-                                   key={i}
-                                   animate={{ height: [4, 20, 4] }}
-                                   transition={{ duration: 0.6, delay: i * 0.05, repeat: Infinity }}
-                                   className="w-1 bg-brand-green/40 rounded-full"
-                                 />
-                               ))}
-                            </div>
-                         </div>
-                         <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest text-center max-w-[300px] leading-relaxed">
-                            Ultimate resonance patterns locked. Advanced-safe encryption initialized. ULTIMATE_STANDARDS synchronized.
-                         </p>
-                      </div>
-                      <div className="absolute bottom-6 left-6 right-6 flex justify-between items-center">
-                         <div className="flex items-center gap-3">
-                            <div className="w-2.5 h-2.5 rounded-full bg-brand-green shadow-[0_0_15px_#00FF41] animate-pulse" />
-                            <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Resonance_V1_Ultimate</span>
-                         </div>
-                         <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded bg-brand-cyan/10 text-brand-cyan text-[8px] font-black uppercase tracking-tighter">AES_P2P_ACTIVE</span>
-                         </div>
+                   <div className="flex-1 bg-black/40 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col items-center justify-center p-8">
+                      <div className="flex flex-col items-center gap-4 opacity-30">
+                         <Play className="w-12 h-12 text-white" />
+                         <span className="text-xs font-mono uppercase tracking-widest text-white">No Media Selected</span>
                       </div>
                    </div>
                  )}
               </div>
-           </div>
-           <div className="flex-1 bento-card p-2">
-              <MapOverlay />
            </div>
         </div>
 
@@ -3577,9 +3518,24 @@ export default function App() {
 
               <div className="flex items-center justify-between gap-12">
                  <div className="flex-1">
-                    <p className="text-[10px] text-white/40 font-mono mb-4 truncate w-full max-w-md">
+                    <p className="text-[10px] text-white/40 font-mono mb-2 truncate w-full max-w-md">
                       {currentMedia ? `SOURCE [${currentMedia.url}] | TYPE: ${currentMedia.type}` : "AWAITING SECURE STREAM CONNECTION. ENCRYPTION STANDARDS STANDING BY."}
                     </p>
+                    <div className="flex items-center gap-2 mb-4 w-full">
+                      <span className="text-white/60 text-[10px] font-mono w-10">{formatTime(currentTime)}</span>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max={duration || 0} 
+                        value={currentTime || 0} 
+                        onChange={(e) => {
+                          if (videoRef.current) videoRef.current.currentTime = parseFloat(e.target.value);
+                          if (audioRef.current) audioRef.current.currentTime = parseFloat(e.target.value);
+                        }}
+                        className="flex-1 max-w-[200px] h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-brand-green transition-all"
+                      />
+                      <span className="text-white/60 text-[10px] font-mono w-10 text-right">{formatTime(duration)}</span>
+                    </div>
                     <div className="flex items-center gap-4">
                        <div className="flex items-center bg-white/5 rounded-2xl border border-white/10 p-1 overflow-hidden">
                           <motion.button 
@@ -3665,7 +3621,7 @@ export default function App() {
                        </div>
 
                        <div className="flex items-center bg-white/5 rounded-xl border border-white/10 p-0.5 ml-2">
-                          {([ 'auto', 'low', 'med', 'high' ] as const).map((q) => (
+                          {([ 'bandwidth', 'balanced', 'resolution' ] as const).map((q) => (
                             <button
                               key={q}
                               onClick={() => setStreamQuality(q)}
@@ -3676,6 +3632,22 @@ export default function App() {
                               }`}
                             >
                               {q}
+                            </button>
+                          ))}
+                       </div>
+
+                       <div className="flex items-center bg-white/5 rounded-xl border border-white/10 p-0.5 ml-2">
+                          {[0.5, 1, 1.5, 2].map((speed) => (
+                            <button
+                              key={speed}
+                              onClick={() => setPlaybackSpeed(speed)}
+                              className={`px-2 py-1 text-[8px] font-black rounded-lg transition-all uppercase tracking-tighter ${
+                                playbackSpeed === speed 
+                                ? 'bg-[#ff00ff] text-white px-3 shadow-[0_0_10px_rgba(255,0,255,0.3)]' 
+                                : 'text-white/40 hover:text-white hover:bg-white/5'
+                              }`}
+                            >
+                              {speed}x
                             </button>
                           ))}
                        </div>

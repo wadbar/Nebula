@@ -48,7 +48,7 @@ async function startServer() {
   // API route for stream discovery using the Robust AI Service (Multi-Tier)
   app.post("/api/discover", async (req, res) => {
     try {
-      let { query, type: activeType, service, cocoEngines, opensearchWeightBoost, torchProxyActive } = req.body;
+      let { query, type: activeType, service, cocoEngines: _cocoEngines, opensearchWeightBoost, torchProxyActive } = req.body;
       if (!query || typeof query !== 'string') return res.status(400).json({ error: "QUERY_REQUIRED_AND_MUST_BE_STRING" });
 
       const activeService = service || "DEEP_SEARCH";
@@ -66,269 +66,7 @@ async function startServer() {
 
       // PARALLEL SCRAPER POOL: Executing independently to ensure high availability
       const scraperTasks = [
-        // CocoScrapers & Scraper Filmes PT (Portuguese/Brazilian content indexer simulation)
-        (async () => {
-          if (cocoEngines?.scrapersFilmesPT || cocoEngines?.cocoScrapers) {
-            // High-fidelity scraped streaming and magnet link indices
-            const scrapedMovies = [
-               {
-                 id: 'scratch-cidade-de-deus',
-                 name: 'Cidade de Deus (City of God) - 1080p WebRip Dual Audio',
-                 url: 'https://archive.org/download/city-of-god-cidade-de-deus-2002/City%20Of%20God%20%28Cidade%20De%20Deus%29%202002.mp4',
-                 type: 'video',
-                 category: 'Cinema Brasileiro',
-                 description: 'Scraped via Scraper-Filmes. Highly rated Brazilian drama detailing life in the slums of Rio.',
-                 service: 'COCO_SCRAPERS_PT',
-                 relevance_score: 0.98,
-                 quality: '1080p',
-                 tags: ['Brazilian', 'DualAudio', 'VLC_Optimized']
-               },
-               {
-                 id: 'scratch-auto-da-compadecida',
-                 name: 'O Auto da Compadecida - Full Stream BR',
-                 url: 'https://archive.org/download/o-auto-da-compadecida-2000-nacional/O_Auto_da_Compadecida_2000_Nacional.mp4',
-                 type: 'video',
-                 category: 'Comédia Nacional',
-                 description: 'Scraped via LevyVix scraper-filmes. Legendary adventure film of João Grilo and Chicó.',
-                 service: 'COCO_SCRAPERS_PT',
-                 relevance_score: 0.95,
-                 quality: '720p',
-                 tags: ['Nacional', 'Cult', 'H264']
-               },
-               {
-                 id: 'scratch-popeye-1950',
-                 name: 'Popeye the Sailor (Classic) - Scrape Archive',
-                 url: 'https://archive.org/download/popeye-sailor-classic/popeye_classic_h264.mp4',
-                 type: 'video',
-                 category: 'Animation',
-                 description: 'Direct MP4 stream extracted from classical animation public registries by XBMC parser.',
-                 service: 'KODI_SCRAPERS_WIKI',
-                 relevance_score: 0.91,
-                 quality: '480p',
-                 tags: ['Classic', 'PublicDomain']
-               }
-            ];
-
-            const matchedMovies = scrapedMovies.filter(m => {
-              const text = `${m.name} ${m.category} ${m.description}`.toLowerCase();
-              return text.includes(query.toLowerCase()) || query.toLowerCase().includes('filme') || query.toLowerCase().includes('movie') || query.toLowerCase().includes('auto') || query.toLowerCase().includes('deus');
-            });
-
-            osIntSignals.push(...matchedMovies);
-          }
-        })(),
-
-        // Torch Dark Web onion crawling simulation
-        (async () => {
-          if (cocoEngines?.torchDarkSearch || query.toLowerCase().includes('.onion') || query.toLowerCase().includes('dark') || query.toLowerCase().includes('exotic')) {
-            const torCrawlMatches = [
-              {
-                id: 'onion-shuttle-radio',
-                name: '[TORCH_ONION] Cyber-Resonance Underground Radio FM',
-                url: 'http://torch3fmsignalsuw9ghy7zsd89g7asgduyhsduhg87g0ahsdyg9a7sdy.onion/stream',
-                type: 'radio',
-                category: 'Onion Broadcast',
-                description: '[ONION NODE] Underground cyber security terminal soundtrack. Route encrypted through standard SOCKS5 Proxy.',
-                service: 'TORCH_CRAWLER',
-                relevance_score: 0.92,
-                tags: ['Onion', 'Underground', 'SOCKS5']
-              },
-              {
-                id: 'onion-forensic-docs',
-                name: '[TORCH_ONION] Complete Signal Analysis Manuals & Whitepapers',
-                url: 'http://torchguidesuwhasduhy87gsa8dyg7shduyagsduy8asgdy8a7dy.onion/manual.pdf',
-                type: 'document',
-                category: 'Exotic Intelligence',
-                description: '[ONION DOCUMENT] Forensic network simulation and secure decryption guidelines. Restrictive access.',
-                service: 'TORCH_CRAWLER',
-                relevance_score: 0.89,
-                tags: ['Onion', 'Forensic', 'Whitepaper']
-              }
-            ];
-
-            const matchedTor = torCrawlMatches.filter(t => {
-              const text = `${t.name} ${t.category} ${t.description}`.toLowerCase();
-              return text.includes(query.toLowerCase()) || query.toLowerCase().includes('onion') || query.toLowerCase().includes('dark') || query.toLowerCase().includes('signal');
-            });
-
-            osIntSignals.push(...matchedTor);
-          }
-        })(),
-        // Global Webcams Registry Provider
-        (async () => {
-          if (activeType === 'live_cam' || activeType === 'all' || query.toLowerCase().includes('cam') || query.toLowerCase().includes('webcam') || query.toLowerCase().includes('live')) {
-            const globalWebcams = [
-              {
-                id: 'cam-nasa-iss',
-                name: 'NASA ISS Live Feed - Earth Orbit',
-                url: 'https://ntv1.akamaized.net/hls/live/2014027/NASA-NTV1-HLS/master.m3u8',
-                type: 'live_cam',
-                category: 'Space Exploration',
-                description: 'Official HLS stream showing live views of Earth from the International Space Station.',
-                service: 'GLOBAL_WEBCAM_REGISTRY',
-                relevance_score: 0.99,
-                quality: '1080p',
-                tags: ['30fps', 'NASA', 'Space']
-              },
-              {
-                id: 'cam-mountain-fuji',
-                name: 'Mount Fuji Panoramic View - Yamanashi (Japan)',
-                url: 'https://live.fujigoko.tv/hls/kawaguchiko.m3u8',
-                type: 'live_cam',
-                category: 'Nature & Landscape',
-                description: 'Scenic live views of Mt. Fuji across Lake Kawaguchiko. Online 24/7.',
-                service: 'GLOBAL_WEBCAM_REGISTRY',
-                relevance_score: 0.95,
-                quality: '720p',
-                tags: ['30fps', 'Fuji', 'Nature']
-              },
-              {
-                id: 'cam-shibuya-crossing',
-                name: 'Shibuya Crossing Live Traffic Cam - Tokyo',
-                url: 'https://stream.shibuya.co.jp/hls/shibuya.m3u8',
-                type: 'live_cam',
-                category: 'City Dashboard',
-                description: 'Real-time high-density traffic camera showing Shibuya street intersection.',
-                service: 'GLOBAL_WEBCAM_REGISTRY',
-                relevance_score: 0.94,
-                quality: '1080p',
-                tags: ['30fps', 'Tokyo', 'Traffic']
-              },
-              {
-                id: 'cam-marine-jellyfish',
-                name: 'Monterey Bay Aquarium - Jellyfish Cam',
-                url: 'https://content.jwplatform.com/manifests/vM7nH069.m3u8',
-                type: 'live_cam',
-                category: 'Wildlife & Marine',
-                description: 'Tranquil live broadcast of Sea Nettles drifting in Monterey Bay Aquarium.',
-                service: 'GLOBAL_WEBCAM_REGISTRY',
-                relevance_score: 0.92,
-                quality: '1080p',
-                tags: ['60fps', 'Ocean', 'Wildlife']
-              },
-              {
-                id: 'cam-ocean-coast',
-                name: 'Pacific Ocean Coastal Observation Feed',
-                url: 'https://playertest.longtailvideo.com/adaptive/oceans/oceans.m3u8',
-                type: 'live_cam',
-                category: 'Nature & Landscape',
-                description: 'High resolution coastal camera feed validating wind, ocean swells, and beach waves.',
-                service: 'GLOBAL_WEBCAM_REGISTRY',
-                relevance_score: 0.90,
-                quality: '4K',
-                tags: ['60fps', 'Beach', 'Oceans']
-              },
-              {
-                id: 'cam-wildlife-sanctuary',
-                name: 'Sabi Sands Game Reserve - Wildlife Cam',
-                url: 'https://test-streams.mux.dev/x36xhg/xj76ut.m3u8',
-                type: 'live_cam',
-                category: 'Wildlife & Marine',
-                description: 'Authentic wildlife activity feed monitoring animals at waterholes and open plains.',
-                service: 'GLOBAL_WEBCAM_REGISTRY',
-                relevance_score: 0.91,
-                quality: '720p',
-                tags: ['30fps', 'Africa', 'Fauna']
-              },
-              {
-                id: 'cam-test-bunny',
-                name: 'Ultra Low Latency Calibration Broadcast',
-                url: 'https://test-streams.mux.dev/x36xhg/x36xhg.m3u8',
-                type: 'live_cam',
-                category: 'Calibration',
-                description: 'Synthetic network testing and low-latency benchmark stream with high frame rates.',
-                service: 'GLOBAL_WEBCAM_REGISTRY',
-                relevance_score: 0.85,
-                quality: '1080p',
-                tags: ['60fps', 'HD', 'Diagnostic']
-              },
-              {
-                id: 'cam-bipbop-adv',
-                name: 'Dynamic Broadcaster Demo Feed - Cupertino',
-                url: 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
-                type: 'live_cam',
-                category: 'Broadcasting',
-                description: 'System diagnostic streaming showcase with precise bitrate adaptation controls.',
-                service: 'GLOBAL_WEBCAM_REGISTRY',
-                relevance_score: 0.88,
-                quality: '1080p',
-                tags: ['30fps', 'Adaptive', 'Dev']
-              }
-            ];
-
-            const filteredCams = globalWebcams.filter(c => {
-              if (activeType === 'live_cam' && !query) return true;
-              return c.name.toLowerCase().includes(query.toLowerCase()) || 
-                     c.category.toLowerCase().includes(query.toLowerCase()) ||
-                     c.description.toLowerCase().includes(query.toLowerCase());
-            });
-
-            osIntSignals.push(...filteredCams);
-          }
-        })(),
-
-        // Radio Browser
-        (async () => {
-          try {
-            const radioRes = await fetchWithTimeout(`https://de1.api.radio-browser.info/json/stations/search?name=${encodeURIComponent(query)}&limit=15`, {}, SCRAPER_TIMEOUT);
-            if (radioRes.ok) {
-              const radioData = await radioRes.json() as any[];
-              radioData.forEach(station => {
-                osIntSignals.push({
-                  id: `radio-${station.stationuuid}`,
-                  name: station.name,
-                  url: station.url_resolved || station.url,
-                  type: 'radio',
-                  category: station.tags ? station.tags.split(',')[0] : 'Radio',
-                  description: `[${station.codec || 'MP3'}] ${station.country || 'Global'} - ${station.bitrate || '128'}kbps`,
-                  service: 'RADIO_BROWSER',
-                  relevance_score: 0.82
-                });
-              });
-            }
-          } catch (e) { console.warn("[SCRAPER] Radio Browser timed out or failed."); }
-        })(),
-
-        // Archive.org
-        (async () => {
-          try {
-            let archiveQuery = query;
-            if (activeType === 'audio' || activeType === 'radio') archiveQuery += ' AND mediatype:audio';
-            if (activeType === 'video' || activeType === 'tv') archiveQuery += ' AND mediatype:movies';
-            if (activeType === 'document' || activeType === 'book') archiveQuery += ' AND (mediatype:texts OR mediatype:data)';
-            
-            const archiveRes = await fetchWithTimeout(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(archiveQuery)}&output=json&rows=10`, {}, SCRAPER_TIMEOUT);
-            if (archiveRes.ok) {
-               const archiveData = await archiveRes.json();
-               const docs = archiveData.response?.docs || [];
-               
-               // For each doc, try to be more precise about the URL
-               docs.forEach((doc: any) => {
-                  const mediatype = doc.mediatype === 'audio' ? 'audio' : (doc.mediatype === 'movies' ? 'video' : (doc.mediatype === 'software' ? 'rom' : 'document'));
-                  
-                  // Heuristic: If it's a known mediatype, we can guess the download directory
-                  // But direct file links vary. We'll use the detail page as fallback, 
-                  // but in a real scraper we'd hit the /metadata API. 
-                  // To keep it fast, we'll suggest the detail page, but the client-side 
-                  // might need to handle Archive.org specifically (e.g. via an iframe if it's not a direct stream).
-                  
-                  osIntSignals.push({
-                     id: `arch-${doc.identifier}`,
-                     name: doc.title || doc.identifier,
-                     url: `https://archive.org/details/${doc.identifier}`,
-                     type: mediatype,
-                     category: doc.collection ? (Array.isArray(doc.collection) ? doc.collection[0] : doc.collection) : 'Archive',
-                     description: `[Archive.org] ${doc.subject ? (Array.isArray(doc.subject) ? doc.subject.join(', ') : doc.subject) : 'Public Domain Asset'}`,
-                     service: 'ARCHIVE_ORG',
-                     relevance_score: 0.88,
-                     metadata: { identifier: doc.identifier }
-                  });
-               });
-            }
-          } catch (e) { console.warn("[SCRAPER] Archive.org timed out or failed."); }
-        })(),
-
-        // Dailymotion
+        // Real Dailymotion Scraper
         (async () => {
           if (['video', 'all', 'movie'].includes(activeType)) {
             try {
@@ -666,12 +404,7 @@ async function startServer() {
       }
       */
 
-      // Merge and Deduplicate
-      const allSignals = [...osIntSignals.map(s => ({
-        ...s,
-        lat: (Math.random() * 140) - 70,
-        lng: (Math.random() * 360) - 180
-      })), ...nebulaSignals];
+      const allSignals = [...osIntSignals, ...nebulaSignals];
       
       const uniqueSignals = Array.from(new Map(allSignals.map(item => [item.url, item])).values());
 
@@ -728,27 +461,34 @@ async function startServer() {
   });
 
   // API route for registry validation
-  app.post("/api/validate", (req, res) => {
+  app.post("/api/validate", async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: "URL_REQUIRED" });
     
-    // Deterministic signature generation based on URL
-    const signature = `nebula:sig:${Buffer.from(url).toString('hex').substring(0, 16)}`;
-    const nodes = Array.from({ length: 12 }).map((_, i) => ({
-      id: `node-${i}`,
-      lat: (Math.random() * 160) - 80,
-      lng: (Math.random() * 360) - 180,
-      status: 'active'
-    }));
-
-    res.json({
-      valid: true,
-      integrity_score: 0.98 + (Math.random() * 0.02),
-      consensus_nodes: 12,
-      nodes,
-      signature,
-      block_timestamp: new Date().toISOString()
-    });
+    try {
+      const headRes = await fetchWithTimeout(url, { method: 'HEAD' }, 5000);
+      const isValid = headRes.ok || headRes.status === 405 || headRes.status === 206; // Some servers block HEAD but link is valid
+      const signature = `nebula:sig:${Buffer.from(url).toString('hex').substring(0, 16)}`;
+      
+      res.json({
+        valid: isValid,
+        integrity_score: isValid ? 1.0 : 0.0,
+        consensus_nodes: isValid ? 1 : 0,
+        nodes: [],
+        signature,
+        block_timestamp: new Date().toISOString()
+      });
+    } catch (e) {
+      // Fallback: If unreachable, mark as valid but with a warning (could be CORS or strict proxy limits)
+      res.json({
+        valid: true,
+        integrity_score: 0.5,
+        consensus_nodes: 0,
+        nodes: [],
+        signature: `nebula:sig:fallback_${Buffer.from(url).toString('hex').substring(0, 8)}`,
+        block_timestamp: new Date().toISOString()
+      });
+    }
   });
 
   // API route for Signal Intelligence
