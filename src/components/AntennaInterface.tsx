@@ -714,79 +714,50 @@ export default function AntennaInterface() {
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 {/* CALIBRATED GAUGES AND BARS */}
                 <div className="col-span-12 md:col-span-8 space-y-3 font-mono">
-                  {/* S-Meter Gauge */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[9px] text-white/40">
-                      <span>S-METER CARRIER STRENGTH</span>
-                      <span className="text-brand-green font-bold">{getSMeterReading()}</span>
-                    </div>
-                    <div className="h-4 bg-white/5 rounded-md border border-white/10 overflow-hidden p-0.5 flex gap-0.5">
-                      {Array.from({ length: 18 }).map((_, i) => {
-                        // RSSI range is -120 to -30
-                        const minVal = -120 + i * 5;
-                        const active = signalStrength >= minVal;
-                        const isHigh = minVal >= -60; // S9+ red region
-                        return (
-                          <div
-                            key={i}
-                            className={`flex-1 transition-all rounded-sm ${
-                              active 
-                                ? isHigh 
-                                  ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' 
-                                  : 'bg-brand-green shadow-[0_0_8px_#00ff41]' 
-                                : 'bg-white/[0.03]'
-                            }`}
-                          />
-                        );
-                      })}
-                    </div>
-                    <div className="flex justify-between text-[8px] text-white/30 pt-0.5">
-                      <span>S1 (-110)</span>
-                      <span>S5 (-85)</span>
-                      <span>S9 (-55)</span>
-                      <span>S9+30dB (-30)</span>
-                    </div>
-                  </div>
+                  {/* RF METRIC PANEL: GAIN & SQUELCH + RSSI & SNR */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Controls (Gain/Squelch) */}
+                     <div className="bg-white/[0.02] p-4 rounded-xl border border-white/5 space-y-4">
+                       <h4 className="text-[9px] font-bold text-white/50 uppercase tracking-widest border-b border-white/5 pb-2">Hardware Tuning</h4>
+                       <div className="space-y-3">
+                         <div className="flex justify-between items-center text-[9px] text-white">
+                           <span>Gain: <b className="text-brand-cyan">{rfGain}dB</b></span>
+                         </div>
+                         <input type="range" min="0" max="50" value={rfGain} onChange={(e) => setRfGain(parseInt(e.target.value))} className="w-full accent-brand-cyan h-1.5 rounded-full bg-white/10 cursor-pointer" />
+                         
+                         <div className="flex justify-between items-center text-[9px] text-white">
+                           <span>Squelch: <b className="text-brand-green">{squelch}dBm</b></span>
+                         </div>
+                         <input type="range" min="-120" max="-40" value={squelch} onChange={(e) => setSquelch(parseInt(e.target.value))} className="w-full accent-brand-green h-1.5 rounded-full bg-white/10 cursor-pointer" />
+                       </div>
+                     </div>
 
-                  {/* SNR Gauge */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[9px] text-white/40">
-                      <span>SNR RATIO STAGE</span>
-                      <span className={`font-bold ${snr > 15 ? 'text-brand-green' : 'text-brand-cyan'}`}>{snr} dB</span>
-                    </div>
-                    <div className="h-2 bg-white/5 rounded-full overflow-hidden flex">
-                      <div 
-                        style={{ width: `${Math.min(100, Math.max(0, (snr / 40) * 100))}%` }} 
-                        className={`h-full transition-all ${
-                          snr > 20 
-                            ? 'bg-brand-green shadow-[0_0_8px_#00ff41]' 
-                            : snr > 10 
-                              ? 'bg-brand-cyan' 
-                              : 'bg-yellow-500'
-                        }`}
-                      />
-                    </div>
-                    <div className="flex justify-between text-[8px] text-white/30">
-                      <span>0 dB (Static)</span>
-                      <span>20 dB (Clear)</span>
-                      <span>40 dB limit</span>
-                    </div>
-                  </div>
-
-                  {/* DBm Values & SNR Values */}
-                  <div className="grid grid-cols-2 gap-3 bg-white/[0.01] p-2.5 rounded-xl border border-white/5">
-                    <div className="flex flex-col">
-                      <span className="text-[8.5px] text-white/30 uppercase">CARRIER POWER (RSSI)</span>
-                      <span className={`text-sm font-black mt-1 ${signalStrength > -70 ? 'text-brand-green' : 'text-brand-cyan'}`}>
-                        {signalStrength} dBm
-                      </span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[8.5px] text-white/30 uppercase">SIGNAL TO NOISE (SNR)</span>
-                      <span className={`text-sm font-black mt-1 ${snr > 15 ? 'text-brand-green' : 'text-brand-cyan'}`}>
-                        {snr} dB
-                      </span>
-                    </div>
+                     {/* Visual Indicators (RSSI/SNR) */}
+                     <div className="bg-white/[0.02] p-4 rounded-xl border border-white/5 flex flex-col justify-between">
+                       <h4 className="text-[9px] font-bold text-white/50 uppercase tracking-widest border-b border-white/5 pb-2 mb-3">Signal Analyzer</h4>
+                       
+                       <div className="space-y-3 flex-1 flex flex-col justify-center">
+                         <div className="space-y-1">
+                           <div className="flex justify-between text-[9px] text-white/60">
+                             <span>RSSI</span>
+                             <span className="text-white font-bold">{signalStrength} dBm</span>
+                           </div>
+                           <div className="h-3 bg-white/5 rounded-full border border-white/10 overflow-hidden flex">
+                             <div className="bg-brand-green h-full transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, (signalStrength + 120) / 90 * 100))}%` }} />
+                           </div>
+                         </div>
+                         
+                         <div className="space-y-1">
+                           <div className="flex justify-between text-[9px] text-white/60">
+                             <span>SNR</span>
+                             <span className="text-white font-bold">{snr} dB</span>
+                           </div>
+                           <div className="h-3 bg-white/5 rounded-full border border-white/10 overflow-hidden flex">
+                             <div className="bg-brand-cyan h-full transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, (snr / 40) * 100))}%` }} />
+                           </div>
+                         </div>
+                       </div>
+                     </div>
                   </div>
                 </div>
 
