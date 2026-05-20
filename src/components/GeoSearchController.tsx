@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Wifi, Compass, Orbit, RefreshCw, Shield, ShieldCheck, EyeOff, Trash2 } from 'lucide-react';
+import { AccountIntegration } from './AccountIntegration';
 import { GEO_HUBS, GeoHub } from '../utils/geo';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix default leaflet marker icon
@@ -11,6 +12,20 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
+
+function MapUpdater({ center }: { center: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    const currentCenter = map.getCenter();
+    if (
+      Math.abs(currentCenter.lat - center[0]) > 0.0001 ||
+      Math.abs(currentCenter.lng - center[1]) > 0.0001
+    ) {
+      map.setView(center, map.getZoom());
+    }
+  }, [center[0], center[1], map]);
+  return null;
+}
 
 function LocationMarker({ userCoords, setUserCoords, addLog }: any) {
   useMapEvents({
@@ -395,6 +410,20 @@ export default function GeoSearchController({
         {/* SECURE TOP BUTTONS */}
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto shrink-0">
           <button
+            onClick={triggerGpsLookup}
+            disabled={loadingGps}
+            className={`px-3 py-2 text-[9px] font-black uppercase tracking-widest rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
+              loadingGps
+                ? 'bg-white/[0.02] border-white/5 text-white/20 cursor-not-allowed'
+                : 'bg-brand-cyan/10 text-brand-cyan border-brand-cyan/40 hover:bg-brand-cyan/20'
+            }`}
+            title="Capturar coordenadas via GPS"
+          >
+            <Compass className="w-3 h-3" />
+            {loadingGps ? "LOCALIZANDO..." : "GPS REAL"}
+          </button>
+          
+          <button
             onClick={() => {
               setIsStealthActive(!isStealthActive);
               if (!isStealthActive) {
@@ -454,13 +483,30 @@ export default function GeoSearchController({
               <span className="text-[9px] font-black text-white/50 uppercase tracking-widest ">Seletor de Localização (Mapa)</span>
               
               <div className="h-40 rounded-lg overflow-hidden border border-white/10 group-hover:border-brand-green/30 transition-all">
-                <MapContainer center={[userCoords.lat, userCoords.lng]} zoom={4} className="h-full w-full">
+                <MapContainer center={[userCoords.lat, userCoords.lng]} zoom={13} className="h-full w-full">
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   />
+                  <MapUpdater center={[userCoords.lat, userCoords.lng]} />
                   <LocationMarker userCoords={userCoords} setUserCoords={setUserCoords} addLog={addLog} />
                 </MapContainer>
+              </div>
+
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-lg space-y-2">
+                <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Camadas de Dados Abertos (OSM)</span>
+                <div className="grid grid-cols-1 gap-1">
+                  {['amenity=restaurant', 'tourism=museum'].map((query) => (
+                    <button
+                      key={query}
+                      className="w-full text-left p-1.5 rounded-lg border border-white/5 bg-white/[0.01] hover:bg-white/[0.05] text-[9px] text-white/60 transition-all flex justify-between"
+                      onClick={() => addLog(`[GEODATA] Querying Overpass API for: ${query}`, "info")}
+                    >
+                      <span>{query.split('=')[1].toUpperCase()}</span>
+                      <span className="text-white/30 italic">PONTOS</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
@@ -669,6 +715,13 @@ export default function GeoSearchController({
                 </div>
               </div>
             </div>
+            
+            <AccountIntegration 
+              onAddKey={(service, key) => {
+                localStorage.setItem(service, key);
+                addLog(`[SYSTEM] Credencial ${service} salva com segurança localmente.`, "success");
+              }} 
+            />
           </div>
         </div>
       </div>

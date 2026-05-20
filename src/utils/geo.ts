@@ -12,6 +12,17 @@ export interface GeoHub {
 
 export const GEO_HUBS: GeoHub[] = [
   {
+    name: "INCRA Node [BRASIL-FEDERAL]",
+    city: "Brasília",
+    state: "Distrito Federal",
+    country: "Brazil",
+    continent: "South America",
+    hemisphere: "Southern",
+    isSpace: false,
+    lat: -15.7975,
+    lng: -47.8919
+  },
+  {
     name: "São Paulo Anchor [SA-EAST]",
     city: "São Paulo",
     state: "São Paulo",
