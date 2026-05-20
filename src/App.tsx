@@ -73,6 +73,8 @@ import { DownloadManager } from './components/DownloadManager';
 import GlobalSignalMap from './components/GlobalSignalMap';
 import ShortcutManager, { KeyboardShortcut, INITIAL_SHORTCUTS } from './components/ShortcutManager';
 import { Map as MapIcon, Keyboard as KeyboardIcon } from 'lucide-react';
+import GeoSearchController from './components/GeoSearchController';
+import { enrichGeographicDetails } from './utils/geo';
 
 const formatTime = (timeInSeconds: number) => {
   if (isNaN(timeInSeconds)) return "00:00";
@@ -302,6 +304,22 @@ const MatrixCard = React.memo(({
              <span className="truncate">{item.url}</span>
           </a>
         </div>
+        {item.geoDetails && (
+          <div className="flex items-center justify-between text-[8px] font-mono mb-3 bg-white/[0.02] border border-white/5 rounded-lg px-2 py-1 relative">
+            <span className="text-white/60 truncate font-black flex items-center gap-1">
+              📍 {item.geoDetails.tierLabel}
+            </span>
+            <span className={`font-bold shrink-0 flex items-center gap-0.5 ${
+              item.geoDetails.pingMs < 30 
+                ? 'text-brand-green' 
+                : item.geoDetails.pingMs < 110 
+                ? 'text-brand-cyan' 
+                : 'text-white/40'
+            }`}>
+              ⚡ {item.geoDetails.pingMs}ms
+            </span>
+          </div>
+        )}
         <RenderTextWithLinks text={item.description} className="text-[9px] text-white/40 line-clamp-1 mb-4 italic" />
         <div className="flex items-center justify-between">
           <div className="flex gap-1">
@@ -459,6 +477,33 @@ const ListCard = React.memo(({
               <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter text-brand-cyan bg-brand-cyan/10 border border-brand-cyan/20">
                 {item.service.split('_')[0]}
               </span>
+            )}
+            {item.geoDetails && (
+              <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter border ${
+                  item.geoDetails.tier === 'espaco' 
+                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 animate-pulse' 
+                    : item.geoDetails.tier === 'cidade' 
+                    ? 'bg-brand-green/20 text-brand-green border-brand-green/35' 
+                    : item.geoDetails.tier === 'estado'
+                    ? 'bg-brand-cyan/20 text-brand-cyan border-brand-cyan/25'
+                    : 'bg-white/5 text-white/50 border-white/5'
+                }`}>
+                  📍 {item.geoDetails.tierLabel}
+                </span>
+                <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded uppercase tracking-tighter border ${
+                  item.geoDetails.pingMs < 30 
+                    ? 'border-brand-green/35 text-brand-green bg-brand-green/5' 
+                    : item.geoDetails.pingMs < 110 
+                    ? 'border-brand-cyan/25 text-brand-cyan bg-brand-cyan/5' 
+                    : 'border-white/10 text-white/40 bg-white/5'
+                }`}>
+                  ⚡ {item.geoDetails.pingMs}ms
+                </span>
+                <span className="text-[7.5px] font-mono text-white/30 hidden sm:inline">
+                  ({item.geoDetails.distanceKm.toLocaleString()} km)
+                </span>
+              </div>
             )}
          </div>
           <h4 className="text-sm font-black text-white truncate group-hover:text-brand-green transition-colors flex items-center gap-2">
@@ -808,6 +853,34 @@ export default function App() {
   });
   const [opensearchWeightBoost, setOpensearchWeightBoost] = useState<number>(1.5);
   const [torchProxyActive, setTorchProxyActive] = useState<boolean>(true);
+
+  // Georeference and Cascading Filter States
+  const [isGeoLocked, setIsGeoLocked] = useState<boolean>(() => {
+    const saved = localStorage.getItem('nebula_geolocked');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [userHub, setUserHub] = useState<any>(() => {
+    return {
+      name: "São Paulo Anchor [SA-EAST]",
+      city: "São Paulo",
+      state: "São Paulo",
+      country: "Brazil",
+      continent: "South America",
+      hemisphere: "Southern",
+      isSpace: false,
+      lat: -23.5505,
+      lng: -46.6333
+    };
+  });
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number }>({
+    lat: -23.5505,
+    lng: -46.6333
+  });
+  const [maxScope, setMaxScope] = useState<'cidade' | 'estado' | 'pais' | 'continente' | 'hemisferio' | 'planeta' | 'espaco'>('espaco');
+
+  useEffect(() => {
+    localStorage.setItem('nebula_geolocked', JSON.stringify(isGeoLocked));
+  }, [isGeoLocked]);
 
   const [activeService, setActiveService] = useState<"DEEP_SEARCH" | "SURFACE_SEARCH" | "DEEP_WEB_SEARCH" | "ADVANCED_NETWORK">("ADVANCED_NETWORK");
   const [streamInfo, setStreamInfo] = useState<{
@@ -2350,12 +2423,49 @@ export default function App() {
   };
 
   const displayedResults = useMemo(() => {
-    return activeTab === "favorites" 
+    const rawResults = activeTab === "favorites" 
       ? favorites 
       : activeTab === "history" 
       ? history 
       : getFilteredResults();
-  }, [activeTab, favorites, history, getFilteredResults]);
+
+    const enriched = rawResults.map(r => {
+      const geo = enrichGeographicDetails(r.name, r.url, userCoords.lat, userCoords.lng, userHub);
+      return {
+        ...r,
+        geoDetails: geo,
+        lat: r.lat || geo.hub.lat,
+        lng: r.lng || geo.hub.lng
+      };
+    });
+
+    if (isGeoLocked) {
+      const tierValue = {
+        cidade: 1,
+        estado: 2,
+        pais: 3,
+        continente: 4,
+        hemisferio: 5,
+        planeta: 6,
+        espaco: 7
+      };
+      const currentMaxVal = tierValue[maxScope] || 7;
+
+      return enriched
+        .filter(item => {
+          const itemVal = tierValue[item.geoDetails.tier] || 6;
+          return itemVal <= currentMaxVal;
+        })
+        .sort((a, b) => {
+          const valA = tierValue[a.geoDetails.tier] || 6;
+          const valB = tierValue[b.geoDetails.tier] || 6;
+          if (valA !== valB) return valA - valB;
+          return a.geoDetails.distanceKm - b.geoDetails.distanceKm;
+        });
+    }
+
+    return enriched;
+  }, [activeTab, favorites, history, getFilteredResults, isGeoLocked, maxScope, userCoords, userHub]);
 
   // Lazy loading observer
   useEffect(() => {
@@ -2750,6 +2860,18 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          <GeoSearchController
+            isGeoLocked={isGeoLocked}
+            setIsGeoLocked={setIsGeoLocked}
+            userHub={userHub}
+            setUserHub={setUserHub}
+            userCoords={userCoords}
+            setUserCoords={setUserCoords}
+            maxScope={maxScope}
+            setMaxScope={setMaxScope}
+            addLog={addLog}
+          />
 
           <div className="flex flex-wrap items-center gap-4 border-b border-white/5 pb-4">
               <span className="text-[10px] text-white/40 font-black tracking-widest uppercase items-center flex gap-1">
