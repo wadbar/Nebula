@@ -7,6 +7,7 @@ export interface NodeLocation {
 }
 
 export interface MediaResult {
+  id?: string;
   name: string;
   url: string;
   type: "radio" | "audio" | "video" | "video_stream" | "tv" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "audio_stream";

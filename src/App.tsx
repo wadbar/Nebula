@@ -860,7 +860,6 @@ export default function App() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const filtersRef = useRef<BiquadFilterNode[]>([]);
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaContainerRef = useRef<HTMLDivElement>(null);
@@ -886,16 +885,8 @@ export default function App() {
         return;
       }
       
-      // Removed crossOrigin to avoid CORS blocks on scraped stations
-      // if (audioRef.current) {
-      //  audioRef.current.crossOrigin = "anonymous";
-      // }
-
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioCtxRef.current = ctx;
-      
-      const source = ctx.createMediaElementSource(audioRef.current!);
-      sourceRef.current = source;
 
       // Analyser Node
       const analyser = ctx.createAnalyser();
@@ -917,13 +908,29 @@ export default function App() {
       });
 
       // Chain filters
-      source.connect(filters[0]);
       for (let i = 0; i < filters.length - 1; i++) {
         filters[i].connect(filters[i + 1]);
       }
       filters[filters.length - 1].connect(analyser);
       analyser.connect(ctx.destination);
       filtersRef.current = filters;
+
+      // Wrap media sources carefully in try-catch to bypass different browser/CORS policies
+      try {
+        const audioSource = ctx.createMediaElementSource(audioRef.current!);
+        audioSource.connect(filters[0]);
+      } catch (err) {
+        console.warn("[DSP] Could not route audioSource through node chain:", err);
+      }
+
+      try {
+        if (videoRef.current) {
+          const videoSource = ctx.createMediaElementSource(videoRef.current!);
+          videoSource.connect(filters[0]);
+        }
+      } catch (err) {
+        console.warn("[DSP] Could not route videoSource through node chain:", err);
+      }
 
       if (ctx.state === 'suspended') {
         await ctx.resume();
@@ -1698,7 +1705,8 @@ export default function App() {
     if (!hls.levels || hls.levels.length === 0) return;
 
     if (quality === "auto") {
-      hls.currentLevel = -1; // hls.js auto
+      hls.currentLevel = -1; // hls.js auto back to ABR
+      hls.loadLevel = -1;
       addLog(`[HLS] Automatic quality adaptation enabled.`, "info");
       return;
     }
@@ -1712,8 +1720,12 @@ export default function App() {
     else if (quality === "high") targetIdx = levels.length - 1;
     else targetIdx = Math.floor(levels.length / 2);
 
-    hls.currentLevel = hls.levels.indexOf(levels[targetIdx]);
-    addLog(`[HLS] Quality manually constrained to ${quality.toUpperCase()} tier.`, "info");
+    const targetHlsLevelIndex = hls.levels.indexOf(levels[targetIdx]);
+    
+    // Lock both current playback level and segment downloader load level
+    hls.currentLevel = targetHlsLevelIndex;
+    hls.loadLevel = targetHlsLevelIndex;
+    addLog(`[HLS] Quality manually constrained to ${quality.toUpperCase()} tier (${levels[targetIdx].width}x${levels[targetIdx].height}).`, "info");
   };
 
   // Sync Quality Changes

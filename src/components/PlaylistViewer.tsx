@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Trash2, List, PlusSquare, RefreshCw, Edit2, Download, Check } from 'lucide-react';
+import { Play, Trash2, List, PlusSquare, RefreshCw, Edit2, Download, Check, Upload } from 'lucide-react';
 import { Reorder } from 'motion/react';
 import { MediaResult, Playlist } from '../types';
 
@@ -50,6 +50,87 @@ export const PlaylistViewer = ({
         if (!name) return;
         setPlaylists(prev => [...prev, { id: Date.now().toString(), name, items: [] }]);
         addLog(`Playlist '${name}' created.`, "success");
+    };
+
+    const handleM3UImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            if (!text) return;
+
+            const lines = text.split(/\r?\n/);
+            const items: MediaResult[] = [];
+            let currentItem: Partial<MediaResult> = {};
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#EXTM3U')) {
+                    continue;
+                }
+                if (trimmed.startsWith('#EXTINF:')) {
+                    const nameParts = trimmed.split(',');
+                    const name = nameParts.length > 1 ? nameParts.slice(1).join(',').trim() : "Unnamed Track";
+                    const groupMatch = trimmed.match(/group-title="([^"]+)"/i);
+                    
+                    currentItem = {
+                        name,
+                        type: 'video_stream',
+                        category: groupMatch ? groupMatch[1] : 'M3U Stream',
+                        description: `Imported via M3U playlist file: ${file.name}`,
+                        relevance_score: 1.0
+                    };
+                } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+                    if (currentItem.name) {
+                        const extension = trimmed.toLowerCase().split('?')[0].split('.').pop();
+                        let type: "video" | "audio" | "radio" | "video_stream" | "live_cam" | "tv" = "video_stream";
+                        if (extension === 'mp3' || extension === 'ogg' || extension === 'aac') {
+                            type = "audio";
+                        } else if (extension === 'm3u8') {
+                            type = "tv";
+                        } else if (extension === 'mp4' || extension === 'mkv') {
+                            type = "video";
+                        }
+
+                        items.push({
+                            ...(currentItem as MediaResult),
+                            url: trimmed,
+                            type,
+                            id: `m3u-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+                        });
+                        currentItem = {};
+                    } else {
+                        const name = trimmed.split('/').pop()?.split('?')[0] || "Stream Code";
+                        items.push({
+                            id: `m3u-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                            name,
+                            url: trimmed,
+                            type: 'video_stream',
+                            category: 'M3U StreamCode',
+                            description: 'Direct stream link.',
+                            relevance_score: 0.9,
+                            tags: []
+                        });
+                    }
+                }
+            }
+
+            if (items.length > 0) {
+                const playlistName = file.name.substring(0, file.name.lastIndexOf('.')) || "M3U Playlist";
+                setPlaylists(prev => [...prev, {
+                    id: Date.now().toString(),
+                    name: playlistName,
+                    items
+                }]);
+                addLog(`Imported playlist '${playlistName}' with ${items.length} items.`, "success");
+            } else {
+                addLog("Could not find any stream URLs in the M3U file.", "warn");
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = "";
     };
 
     const handleExport = (playlist: Playlist) => {
@@ -104,6 +185,16 @@ export const PlaylistViewer = ({
                         {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <List className="w-3 h-3" />}
                         AI_GEN
                     </button>
+                    <label className="bg-brand-cyan/20 hover:bg-brand-cyan/30 text-brand-cyan px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 border border-brand-cyan/20 cursor-pointer">
+                        <Upload className="w-3 h-3" />
+                        IMPORT M3U
+                        <input 
+                            type="file" 
+                            accept=".m3u,.m3u8,.txt" 
+                            onChange={handleM3UImport} 
+                            className="hidden" 
+                        />
+                    </label>
                 </div>
             </div>
             {playlists.map((playlist) => (
