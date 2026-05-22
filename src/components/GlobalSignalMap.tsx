@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
+import { useState, useMemo, useEffect } from 'react';
+import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import { MediaResult } from '../types';
 import { Play, Shield, Activity, Laptop } from 'lucide-react';
 
@@ -8,6 +8,19 @@ interface EnrichedMediaResult extends MediaResult {
   lng: number;
   locationName: string;
   health: "optimal" | "broken" | "unknown" | "degraded";
+}
+
+function MapBoundsController({ results, trigger }: { results: EnrichedMediaResult[], trigger: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || results.length === 0 || !window.google?.maps) return;
+    const bounds = new window.google.maps.LatLngBounds();
+    results.forEach(result => {
+      bounds.extend({ lat: Number(result.lat), lng: Number(result.lng) });
+    });
+    map.fitBounds(bounds);
+  }, [map, results, trigger]);
+  return null;
 }
 
 interface GlobalSignalMapProps {
@@ -60,6 +73,7 @@ export default function GlobalSignalMap({
   openIntelPanel
 }: GlobalSignalMapProps) {
   const [selectedNode, setSelectedNode] = useState<EnrichedMediaResult | null>(null);
+  const [zoomTrigger, setZoomTrigger] = useState(0);
 
   // Map and enrich discovered signals with coordinates
   const enrichedResults = useMemo<EnrichedMediaResult[]>(() => {
@@ -160,6 +174,15 @@ export default function GlobalSignalMap({
           <p className="text-[10px] text-white/40 mb-4 leading-relaxed">
             Viewing {enrichedResults.length} index nodes parsed globally. Click markers to review orbital locations, latency statistics, and trigger instant high-fidelity audio/video relays.
           </p>
+          
+          <button 
+             onClick={() => {
+                setZoomTrigger(prev => prev + 1);
+             }}
+             className="w-full text-center text-[9px] font-black tracking-widest bg-white/5 hover:bg-white/10 text-white uppercase py-2 rounded-lg mb-4 transition-colors"
+          >
+             ZOOM_TO_CLUSTER
+          </button>
 
           <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
             {enrichedResults.slice(0, 15).map((node, i) => {
@@ -254,6 +277,7 @@ export default function GlobalSignalMap({
             gestureHandling="greedy"
             disableDefaultUI={false}
           >
+            <MapBoundsController results={enrichedResults} trigger={zoomTrigger} />
             {enrichedResults.map((node, i) => {
               const isPlaying = currentMedia?.url === node.url;
               const config = getMarkerPinConfig(node.health || 'optimal', isPlaying);

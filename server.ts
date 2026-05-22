@@ -240,8 +240,22 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
                 useSearch: true
               });
 
-              if (response && response.success && Array.isArray(response.content)) {
-                response.content.forEach((item: any, idx: number) => {
+              let items: any[] = [];
+              if (response && response.success) {
+                if (Array.isArray(response.content)) {
+                  items = response.content;
+                } else if (response.content && typeof response.content === 'object') {
+                  for (const key in response.content) {
+                    if (Array.isArray(response.content[key])) {
+                      items = response.content[key];
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (items.length > 0) {
+                items.forEach((item: any, idx: number) => {
                   if (item && item.url && item.name) {
                     osIntSignals.push({
                       id: `ai-grounding-${idx}-${Math.random().toString(36).substring(2, 6)}`,
@@ -255,7 +269,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
                     });
                   }
                 });
-                Logger.info("AI_GROUNDING_SCRAPER", `AI Search Grounding indexer successfully resolved ${response.content.length} nodes for "${query}".`);
+                Logger.info("AI_GROUNDING_SCRAPER", `AI Search Grounding indexer successfully resolved ${items.length} nodes for "${query}".`);
               }
             } catch (err) {
               Logger.warn("AI_GROUNDING_SCRAPER", `Failed to run dynamic Web Search Grounding scraper:`, { error: String(err) });

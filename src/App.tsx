@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { 
   Radio, 
   Video, 
@@ -73,7 +74,7 @@ import { DownloadManager } from './components/DownloadManager';
 import GlobalSignalMap from './components/GlobalSignalMap';
 import AntennaInterface from './components/AntennaInterface';
 import ShortcutManager, { KeyboardShortcut, INITIAL_SHORTCUTS } from './components/ShortcutManager';
-import { Map as MapIcon, Keyboard as KeyboardIcon } from 'lucide-react';
+import { Map as MapIcon, Keyboard as KeyboardIcon, Sun, Moon, History } from 'lucide-react';
 import GeoSearchController from './components/GeoSearchController';
 import { enrichGeographicDetails } from './utils/geo';
 
@@ -205,6 +206,7 @@ const MatrixCardSkeleton = () => {
  */
 const MatrixCard = React.memo(({ 
   item, 
+  idx,
   isPlayingNow, 
   playMedia, 
   toggleFavorite, 
@@ -214,6 +216,41 @@ const MatrixCard = React.memo(({
 }: any) => {
   const [isVisible, setIsVisible] = React.useState(false);
   const cardRef = React.useRef<HTMLDivElement>(null);
+
+  const [telemetryData, setTelemetryData] = React.useState<{value: number}[]>(() => {
+    return Array.from({length: 20}).map(() => ({ value: (item.geoDetails?.pingMs || 100) + Math.random() * 40 - 20 }));
+  });
+  
+  React.useEffect(() => {
+    if (!isVisible) return;
+    const interval = setInterval(() => {
+      setTelemetryData(prev => [...prev.slice(1), { value: Math.max(0, (item.geoDetails?.pingMs || 100) + Math.random() * 40 - 20) }]);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isVisible, item.geoDetails]);
+
+  const [localTags, setLocalTags] = React.useState<string[]>(() => {
+    const saved = localStorage.getItem('nebula_tags');
+    if (saved) {
+       const parsed = JSON.parse(saved);
+       return parsed[item.url] || item.tags || [];
+    }
+    return item.tags || [];
+  });
+  const [tagInput, setTagInput] = React.useState("");
+
+  const handleAddTag = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!tagInput.trim()) return;
+    const newTags = [...localTags, tagInput.trim()];
+    setLocalTags(newTags);
+    setTagInput("");
+    const saved = localStorage.getItem('nebula_tags');
+    const parsed = saved ? JSON.parse(saved) : {};
+    parsed[item.url] = newTags;
+    localStorage.setItem('nebula_tags', JSON.stringify(parsed));
+  };
 
   React.useEffect(() => {
     if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
@@ -253,13 +290,18 @@ const MatrixCard = React.memo(({
       ref={cardRef}
       onMouseEnter={() => onHover(item)}
       onMouseLeave={() => onHover(null)}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      whileHover={{ y: -4, boxShadow: "0 10px 30px -15px rgba(0,255,65,0.2)" }}
       exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ duration: 0.3, delay: (idx % 20) * 0.05 }}
       layout
       onClick={() => playMedia(item)}
-      className={`bento-card p-4 group cursor-pointer relative overflow-hidden transition-all border-white/5 hover:border-brand-green/30 ${isPlayingNow ? 'border-brand-green/50 shadow-[0_0_15px_rgba(34,197,94,0.15)] bg-brand-green/10' : 'bg-white/5 hover:bg-white/[0.08]'}`}
+      className={`bento-card p-4 group cursor-pointer relative overflow-hidden transition-all border-white/5 hover:border-brand-green/30 ${isPlayingNow ? 'border-brand-green/50 shadow-[0_0_15px_rgba(34,197,94,0.15)] bg-brand-green/10' : 'bg-white/5 hover:bg-white/[0.08]'} ${(item.health === 'broken' || item.health === 'degraded') ? 'border-red-500/50 shadow-[inset_0_0_10px_rgba(239,68,68,0.2)]' : ''}`}
     >
+        {(item.health === 'broken' || item.health === 'degraded') && (
+           <div className="absolute inset-0 border border-red-500/40 rounded-2xl animate-pulse pointer-events-none" />
+        )}
         <div className="flex justify-between items-start mb-4">
           <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center border border-white/10 group-hover:border-brand-green/30 transition-all">
             {item.type === 'radio' && <Radio className="w-4 h-4 text-brand-cyan" />}
@@ -274,6 +316,11 @@ const MatrixCard = React.memo(({
             {item.type === 'rom' && <Gamepad2 className="w-4 h-4 text-orange-400" />}
             {item.type === 'book' && <Book className="w-4 h-4 text-amber-500" />}
           </div>
+          {(item.health === 'broken' || (item.relevance_score !== undefined && item.relevance_score < 0.3)) && (
+             <div className="absolute top-2 left-12 flex items-center justify-center bg-red-500/20 text-red-500 p-0.5 rounded-full border border-red-500/30 animate-[bounce_1s_infinite]">
+                <AlertCircle className="w-3 h-3" />
+             </div>
+          )}
           <div className="flex flex-col items-end gap-1">
              <div className="flex items-center gap-1.5">
                 <div className="flex gap-0.5">
@@ -321,40 +368,65 @@ const MatrixCard = React.memo(({
             </span>
           </div>
         )}
-        <RenderTextWithLinks text={item.description} className="text-[9px] text-white/40 line-clamp-1 mb-4 italic" />
-        <div className="flex items-center justify-between">
-          <div className="flex gap-1">
-             {item.type === 'live_cam' && (
-               <span className="text-[7px] px-1 bg-brand-green/15 text-brand-green border border-brand-green/35 rounded uppercase font-black">{getWebcamCategory(item)}</span>
-             )}
-             {item.tags?.slice(0, 2).map((t: any) => (
-               <span key={t} className="text-[7px] px-1 bg-white/5 rounded text-white/30 uppercase">{t}</span>
-             ))}
-          </div>
-          <div className="flex gap-1">
-            <button 
-              onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }}
-              className={`p-1 rounded bg-white/5 transition-all ${isFavorite ? 'text-yellow-500' : 'text-white/20 hover:text-white'}`}
-            >
-              <Star className={`w-3 h-3 ${isFavorite ? 'fill-current' : ''}`} />
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onAddToPlaylist(item); }}
-              className="p-1 rounded bg-white/5 text-white/20 hover:text-brand-green hover:bg-brand-green/10 border border-white/5 transition-all"
-              title="Add to Playlist"
-            >
-              <ListPlus className="w-3 h-3" />
-            </button>
-            <a 
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="p-1 rounded bg-white/5 text-white/20 hover:text-brand-cyan hover:bg-brand-cyan/10 border border-white/5 transition-all"
-              title="Open Externally"
-            >
-              <ExternalLink className="w-3 h-3" />
-            </a>
+        <RenderTextWithLinks text={item.description} className="text-[9px] text-white/40 line-clamp-1 mb-2 italic" />
+        
+        <div className="h-10 mb-4 opacity-70 relative pointer-events-none rounded overflow-hidden border border-white/5 bg-black/20">
+           <ResponsiveContainer width="100%" height="100%">
+             <LineChart data={telemetryData}>
+               <Line type="monotone" dataKey="value" stroke={item.geoDetails?.pingMs! < 100 ? "#00FF41" : "#00f0ff"} strokeWidth={1} dot={false} isAnimationActive={false} />
+             </LineChart>
+           </ResponsiveContainer>
+           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end">
+              <span className="text-[6px] font-mono text-white/30 uppercase tracking-widest pl-1 pb-1">Telemetry 60s Track</span>
+           </div>
+        </div>
+        
+        <div className="flex flex-col gap-2">
+          <form onSubmit={handleAddTag} className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+            <input 
+              type="text" 
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              placeholder="Add tag..."
+              className="bg-black/50 border border-white/10 rounded px-2 py-1 text-[8px] text-white focus:outline-none focus:border-brand-green/30 flex-1"
+            />
+            <button type="submit" className="bg-brand-green/20 text-brand-green text-[8px] px-2 rounded hover:bg-brand-green/30">+</button>
+          </form>
+
+          <div className="flex items-center justify-between">
+            <div className="flex flex-wrap gap-1 flex-1 h-[20px] overflow-hidden">
+               {item.type === 'live_cam' && (
+                 <span className="text-[7px] px-1 h-[14px] flex items-center bg-brand-green/15 text-brand-green border border-brand-green/35 rounded uppercase font-black">{getWebcamCategory(item)}</span>
+               )}
+               {localTags.slice(0, 3).map((t: string) => (
+                 <span key={t} className="text-[7px] px-1 h-[14px] flex items-center bg-white/5 border border-white/10 rounded text-white/50 uppercase">{t}</span>
+               ))}
+            </div>
+            <div className="flex gap-1 shrink-0">
+              <button 
+                onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }}
+                className={`p-1 flex items-center justify-center rounded bg-white/5 transition-all ${isFavorite ? 'text-yellow-500' : 'text-white/20 hover:text-white'}`}
+              >
+                <Star className={`w-3 h-3 ${isFavorite ? 'fill-current' : ''}`} />
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onAddToPlaylist(item); }}
+                className="p-1 flex items-center justify-center rounded bg-white/5 text-white/20 hover:text-brand-green hover:bg-brand-green/10 border border-white/5 transition-all"
+                title="Add to Playlist"
+              >
+                <ListPlus className="w-3 h-3" />
+              </button>
+              <a 
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="p-1 flex items-center justify-center rounded bg-white/5 text-white/20 hover:text-brand-cyan hover:bg-brand-cyan/10 border border-white/5 transition-all"
+                title="Open Externally"
+              >
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
         </div>
     </motion.div>
@@ -404,6 +476,41 @@ const ListCard = React.memo(({
   const [isVisible, setIsVisible] = React.useState(false);
   const cardRef = React.useRef<HTMLDivElement>(null);
 
+  const [telemetryData, setTelemetryData] = React.useState<{value: number}[]>(() => {
+    return Array.from({length: 20}).map(() => ({ value: (item.geoDetails?.pingMs || 100) + Math.random() * 40 - 20 }));
+  });
+  
+  React.useEffect(() => {
+    if (!isVisible) return;
+    const interval = setInterval(() => {
+      setTelemetryData(prev => [...prev.slice(1), { value: Math.max(0, (item.geoDetails?.pingMs || 100) + Math.random() * 40 - 20) }]);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isVisible, item.geoDetails]);
+
+  const [localTags, setLocalTags] = React.useState<string[]>(() => {
+    const saved = localStorage.getItem('nebula_tags');
+    if (saved) {
+       const parsed = JSON.parse(saved);
+       return parsed[item.url] || item.tags || [];
+    }
+    return item.tags || [];
+  });
+  const [tagInput, setTagInput] = React.useState("");
+
+  const handleAddTag = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!tagInput.trim()) return;
+    const newTags = [...localTags, tagInput.trim()];
+    setLocalTags(newTags);
+    setTagInput("");
+    const saved = localStorage.getItem('nebula_tags');
+    const parsed = saved ? JSON.parse(saved) : {};
+    parsed[item.url] = newTags;
+    localStorage.setItem('nebula_tags', JSON.stringify(parsed));
+  };
+
   React.useEffect(() => {
     if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
       setIsVisible(true);
@@ -441,14 +548,19 @@ const ListCard = React.memo(({
     <motion.div
       ref={cardRef}
       key={item.url}
+      layout
       onMouseEnter={() => onHover(item)}
       onMouseLeave={() => onHover(null)}
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2, boxShadow: "0 10px 30px -15px rgba(0,255,65,0.1)" }}
       exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ delay: idx * 0.01, duration: 0.2 }}
-      className={`group relative p-4 bg-white/5 rounded-2xl border transition-all flex items-center gap-6 overflow-hidden ${isPlayingNow ? 'border-brand-green/30 bg-brand-green/5 shadow-[0_0_20px_rgba(0,255,65,0.05)]' : 'border-white/5 hover:bg-white/[0.08] hover:border-white/20'}`}
+      transition={{ duration: 0.3, delay: (idx % 20) * 0.05 }}
+      className={`group relative p-4 bg-white/5 rounded-2xl border transition-all flex items-center gap-6 overflow-hidden ${isPlayingNow ? 'border-brand-green/30 bg-brand-green/5 shadow-[0_0_20px_rgba(0,255,65,0.05)]' : 'border-white/5 hover:bg-white/[0.08] hover:border-white/20'} ${(item.health === 'broken' || item.health === 'degraded') ? 'border-red-500/30 bg-red-500/[0.02]' : ''}`}
     >
+      {(item.health === 'broken' || item.health === 'degraded') && (
+        <div className="absolute inset-0 border border-red-500/20 rounded-2xl animate-pulse pointer-events-none" />
+      )}
       <div className="absolute inset-x-0 top-0 h-[1px] bg-brand-green/50 opacity-0 group-hover:opacity-100 animate-scan pointer-events-none" />
       <div className="w-12 h-12 bg-black flex items-center justify-center rounded-xl border border-white/10 shrink-0 group-hover:border-brand-green/40 transition-colors cursor-pointer" onClick={() => playMedia(item)}>
         {item.type === 'radio' && <Radio className="w-5 h-5 text-brand-cyan" />}
@@ -462,6 +574,11 @@ const ListCard = React.memo(({
         {item.type === 'document' && <FileText className="w-5 h-5 text-blue-400" />}
         {item.type === 'book' && <Book className="w-5 h-5 text-orange-400" />}
         {item.type === 'rom' && <Gamepad2 className="w-5 h-5 text-orange-400" />}
+        {(item.health === 'broken' || (item.relevance_score !== undefined && item.relevance_score < 0.3)) && (
+          <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 border border-white/10 z-10 animate-bounce">
+            <AlertCircle className="w-2.5 h-2.5" />
+          </div>
+        )}
       </div>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => playMedia(item)}>
          <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -511,6 +628,33 @@ const ListCard = React.memo(({
             {item.name}
           </h4>
           <RenderTextWithLinks text={item.description} className="text-[10px] text-white/40 line-clamp-1 italic mt-1" />
+          
+          <div className="h-8 mt-2 opacity-70 relative pointer-events-none rounded overflow-hidden border border-white/5 bg-black/20 max-w-sm hidden sm:block">
+             <ResponsiveContainer width="100%" height="100%">
+               <LineChart data={telemetryData}>
+                 <Line type="monotone" dataKey="value" stroke={item.geoDetails?.pingMs! < 100 ? "#00FF41" : "#00f0ff"} strokeWidth={1} dot={false} isAnimationActive={false} />
+               </LineChart>
+             </ResponsiveContainer>
+             <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end">
+                <span className="text-[6px] font-mono text-white/30 uppercase tracking-widest pl-1 pb-1">Telemetry 60s Track</span>
+             </div>
+          </div>
+
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <form onSubmit={handleAddTag} className="flex gap-1 items-center" onClick={(e) => e.stopPropagation()}>
+              <input 
+                type="text" 
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                placeholder="Add tag..."
+                className="bg-black/50 border border-white/10 rounded px-2 py-0.5 text-[8px] text-white focus:outline-none focus:border-brand-green/30 w-20"
+              />
+              <button type="submit" className="bg-brand-green/20 text-brand-green text-[8px] px-1.5 py-0.5 rounded hover:bg-brand-green/30">+</button>
+            </form>
+            {localTags.slice(0, 3).map((t: string) => (
+               <span key={t} className="text-[7px] px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-white/50 uppercase">{t}</span>
+            ))}
+          </div>
           <div className="flex items-center gap-2 mt-2 overflow-hidden">
             <a 
               href={item.url}
@@ -600,6 +744,49 @@ const renderCyberMarkdown = (text: string) => {
 };
 
 export default function App() {
+  const [isOfflineMode, setIsOfflineMode] = useState(() => {
+    return localStorage.getItem('nebula_offline_mode') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('nebula_offline_mode', isOfflineMode.toString());
+  }, [isOfflineMode]);
+
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        setShowShortcutsHelp(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        setShowShortcutsHelp(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  const [isLightMode, setIsLightMode] = useState(() => {
+    return localStorage.getItem('nebula_theme') === 'light';
+  });
+
+  useEffect(() => {
+    if (isLightMode) {
+      document.documentElement.classList.add('light-theme');
+      localStorage.setItem('nebula_theme', 'light');
+    } else {
+      document.documentElement.classList.remove('light-theme');
+      localStorage.setItem('nebula_theme', 'dark');
+    }
+  }, [isLightMode]);
+
   const [query, setQuery] = useState("");
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     const saved = localStorage.getItem('nebula_search_history');
@@ -1381,6 +1568,21 @@ export default function App() {
     });
     setShowSuggestions(false);
     
+    if (isOfflineMode) {
+      addLog("OFFLINE_MODE active. Searching local registry/cache only.", "security");
+      const localResults = [
+        ...favorites,
+        ...history,
+        ...playlists.flatMap(p => p.items)
+      ].filter(item => 
+        item.name.toLowerCase().includes(finalQuery.toLowerCase()) || 
+        item.description.toLowerCase().includes(finalQuery.toLowerCase())
+      );
+      
+      setResults(Array.from(new Set(localResults.map(r => r.url))).map(url => localResults.find(r => r.url === url)!));
+      setLoading(false);
+      return;
+    }
     if (searchController.current) searchController.current.abort();
     searchController.current = new AbortController();
 
@@ -1590,6 +1792,18 @@ export default function App() {
       const filtered = prev.filter(item => item.url !== media.url);
       return [media, ...filtered].slice(0, 50);
     });
+
+    // VLC Integration: Open all links directly
+    try {
+      const vlcIframe = document.createElement('iframe');
+      vlcIframe.style.display = 'none';
+      vlcIframe.src = `vlc://${media.url}`;
+      document.body.appendChild(vlcIframe);
+      setTimeout(() => document.body.removeChild(vlcIframe), 1000);
+      addLog(`[VLC_INTEGRATION] Dispatching stream directly to VLC Media Player...`, "success");
+    } catch(e) {
+      console.warn("VLC dispatch failed", e);
+    }
 
     // Resume AudioContext if suspended
     if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
@@ -2581,13 +2795,53 @@ export default function App() {
         ))}
       </div>
       
+      {/* GLOBAL KEYBOARD SHORTCUTS HELP OVERLAY */}
+      <AnimatePresence>
+        {showShortcutsHelp && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-0 z-[1000] flex items-center justify-center pointer-events-none p-6"
+          >
+            <div className="bg-black/90 backdrop-blur-3xl border border-brand-green/30 rounded-3xl p-8 max-w-lg w-full shadow-[0_0_100px_rgba(0,255,65,0.2)]">
+              <div className="flex items-center gap-4 mb-8 border-b border-brand-green/10 pb-4">
+                <div className="bg-brand-green/20 p-2 rounded-lg">
+                  <KeyboardIcon className="w-6 h-6 text-brand-green" />
+                </div>
+                <div>
+                   <h2 className="text-xl font-black text-white tracking-widest uppercase">Command Matrix Help</h2>
+                   <p className="text-[10px] text-brand-green font-mono uppercase">Nebula Global Keymaps Active</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                {shortcuts.map(s => (
+                  <div key={s.id} className="flex items-center justify-between group">
+                    <span className="text-xs text-white/60 font-mono tracking-wider uppercase group-hover:text-white transition-colors">{s.label.replace('Toggle ', '')}</span>
+                    <div className="flex items-center gap-2">
+                       <span className="bg-brand-green/10 border border-brand-green/20 text-brand-green px-2 py-0.5 rounded font-mono text-[10px] min-w-[32px] text-center shadow-[0_0_8px_rgba(0,255,65,0.1)]">{s.currentCode.replace('Key', '')}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-8 pt-4 border-t border-white/5 flex items-center justify-center gap-2 animate-pulse">
+                <Command className="w-3 h-3 text-white/30" />
+                <span className="text-[8px] font-mono text-white/30 uppercase tracking-[0.3em]">Release Core Key to Close</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* GLOBAL STATUS BAR */}
       <div className="h-auto py-2 lg:py-0 lg:h-9 shrink-0 flex flex-col lg:flex-row items-center justify-between px-4 lg:px-6 bg-white/5 border border-white/10 rounded-xl overflow-hidden relative gap-2 lg:gap-4 select-none">
         <div className="absolute inset-0 bg-gradient-to-r from-brand-green/5 via-transparent to-brand-green/5 animate-pulse pointer-events-none" />
         <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 lg:gap-6 relative z-10 w-full lg:w-auto">
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse" />
-            <span className="text-[10px] font-black tracking-widest text-white/80 uppercase">Nebula_V1_Ultimate_Core</span>
+            <div className={`w-1.5 h-1.5 rounded-full ${isOfflineMode ? 'bg-red-500 animate-pulse' : 'bg-brand-green animate-pulse'}`} />
+            <span className="text-[10px] font-black tracking-widest text-white/80 uppercase">
+              {isOfflineMode ? 'Nebula_Offline_Core' : 'Nebula_V1_Ultimate_Core'}
+            </span>
           </div>
           {workerActive && (
             <div className="flex items-center gap-2 text-brand-cyan/80 animate-pulse border-l border-white/10 pl-4 h-4 hidden sm:flex">
@@ -2639,6 +2893,15 @@ export default function App() {
           </button>
           <div className="h-4 w-[1px] bg-white/10 hidden sm:block shrink-0" />
           <button 
+            onClick={() => setIsOfflineMode(!isOfflineMode)}
+            className={`flex items-center gap-1.5 lg:gap-2 text-[10px] font-black tracking-widest transition-colors shrink-0 ${isOfflineMode ? 'text-red-500' : 'text-white/40 hover:text-white'}`}
+            title="Toggle Offline Mode (Disables API calls, uses local cache)"
+          >
+            <Power className={`w-3.5 h-3.5 ${isOfflineMode ? 'animate-pulse' : ''}`} />
+            <span className="hidden sm:inline">{isOfflineMode ? 'OFFLINE ACTIVE' : 'GO OFFLINE'}</span>
+          </button>
+          <div className="h-4 w-[1px] bg-white/10 hidden sm:block shrink-0" />
+          <button 
             onClick={() => setShowShortcutModal(true)}
             className="flex items-center gap-1.5 lg:gap-2 text-[10px] font-black tracking-widest text-brand-cyan hover:text-white transition-colors shrink-0"
           >
@@ -2650,6 +2913,14 @@ export default function App() {
             <Globe className="w-3 h-3" />
             GLOBAL_NETWORK
           </div>
+          <div className="h-4 w-[1px] bg-white/10 hidden lg:block shrink-0" />
+          <button
+            onClick={() => setIsLightMode(!isLightMode)}
+            className="flex items-center justify-center p-1.5 rounded-full hover:bg-white/10 transition-colors text-white/60 hover:text-white shrink-0"
+            title="Toggle Theme"
+          >
+            {isLightMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
           <div className="h-4 w-[1px] bg-white/10 hidden lg:block shrink-0" />
           <div className="text-[10px] font-mono text-white/60 shrink-0 hidden lg:block">
             {new Date().toLocaleTimeString('en-US', { hour12: false })}
@@ -2830,17 +3101,48 @@ export default function App() {
                   onFocus={() => setShowSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                   placeholder="Enter discovery parameters..."
-                  className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-6 pr-24 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-green/30 transition-all font-mono tracking-wider placeholder:text-white/10"
+                  className="w-full bg-surface-container border border-outline-variant rounded-2xl py-4 pl-6 pr-24 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all font-mono tracking-wider placeholder:text-on-surface-variant flex-1 min-h-[48px]"
+                  style={{ minHeight: '56px' }}
                 />
                 <button 
                   type="submit"
                   disabled={loading}
-                  className="absolute right-2 top-2 bottom-2 bg-brand-green/20 hover:bg-brand-green/30 text-brand-green px-4 sm:px-6 rounded-xl text-[10px] font-black transition-all flex items-center gap-2 border border-brand-green/20 shrink-0 z-10"
+                  className="absolute right-2 top-2 bottom-2 bg-primary/20 hover:bg-primary/30 text-primary px-4 sm:px-6 rounded-xl text-[10px] font-black transition-all flex items-center gap-2 border border-primary/20 shrink-0 z-10"
                 >
                   {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                   <span className="hidden sm:inline">Deep Scan</span>
                   <span className="sm:hidden">SCAN</span>
                 </button>
+                {showSuggestions && searchHistory.length > 0 && (
+                  <AnimatePresence>
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute top-full left-0 right-0 mt-2 bg-surface-container border border-outline-variant rounded-2xl p-2 z-50 shadow-lg backdrop-blur-xl"
+                    >
+                      <div className="text-[10px] uppercase font-black text-on-surface-variant tracking-widest px-3 py-2 mb-1 flex items-center justify-between">
+                        <span>Frequent Vectors</span>
+                        <History className="w-3 h-3" />
+                      </div>
+                      {searchHistory.map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setQuery(item);
+                            setShowSuggestions(false);
+                            handleSearch(e as unknown as React.FormEvent, item);
+                          }}
+                          className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-primary/10 hover:text-primary text-sm font-mono text-on-surface transition-colors flex items-center gap-3"
+                        >
+                          <Search className="w-4 h-4 opacity-50" />
+                          {item}
+                        </button>
+                      ))}
+                    </motion.div>
+                  </AnimatePresence>
+                )}
              </div>
              
              {/* GeoSearchController moved here, collapsed by default */}
@@ -3041,7 +3343,25 @@ export default function App() {
             ) : activeTab === 'antenna' ? (
               <AntennaInterface />
             ) : activeTab === 'discover' ? (
-              <DiscoverView playMedia={playMedia} />
+              <DiscoverView 
+                playMedia={playMedia} 
+                searchHistory={searchHistory}
+                onAddToPlaylist={(media) => setPlaylistModalItem(media)}
+                handleDownload={handleDownload}
+                playlists={playlists}
+                onRunSearch={(q: string) => { setQuery(q); handleSearch(undefined, q); setActiveTab('antenna'); }}
+                onBulkAddToPlaylist={(items, playlistId) => {
+                  setPlaylists(prev => prev.map(p => {
+                    if (p.id === playlistId) {
+                      const newItems = items.filter(item => !p.items.some(existing => existing.url === item.url));
+                      if (newItems.length > 0) {
+                        return { ...p, items: [...p.items, ...newItems] };
+                      }
+                    }
+                    return p;
+                  }));
+                }}
+              />
             ) : viewMode === 'matrix' && results.length > 0 && activeTab !== 'favorites' && activeTab !== 'history' ? (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-max px-1">
@@ -3234,12 +3554,20 @@ export default function App() {
         ) : (currentMedia.type === 'document' || currentMedia.type === 'rom' || currentMedia.type === 'book') ? (
           <iframe src={getViewerUrl(currentMedia.url)} className="w-full h-full bg-white relative z-[1]" title={currentMedia.name} />
         ) : (currentMedia.url?.includes('youtube.com') || currentMedia.url?.includes('youtu.be')) ? (
-          <iframe 
-            src={`https://www.youtube.com/embed/${currentMedia.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1] ?? ''}?autoplay=1&mute=0&controls=1`}
-            className="w-full h-full object-cover"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
+          <div className="w-full h-full relative group">
+            <iframe 
+              src={`https://www.youtube-nocookie.com/embed/${currentMedia.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1] ?? ''}?autoplay=1&mute=0&controls=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : 'https://youtube.com')}`}
+              className="w-full h-full object-cover"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
+              allowFullScreen
+            />
+            <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+              <a href={currentMedia.url} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-black/80 hover:bg-red-600/90 rounded border border-white/20 text-[10px] font-black uppercase text-white backdrop-blur flex items-center gap-1.5 shadow-xl transition-colors">
+                <ExternalLink className="w-3 h-3" /> Abrir no YouTube
+              </a>
+            </div>
+          </div>
         ) : (currentMedia.url?.includes('archive.org/details/') && !currentMedia.url.match(/\.(mp4|mkv|avi|m4v|m3u8)$/i)) ? (
            <iframe 
              src={`https://archive.org/embed/${currentMedia.url.split('/details/')[1].split('?')[0]}`} 

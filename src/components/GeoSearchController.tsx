@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Wifi, Compass, Orbit, RefreshCw, Shield, ShieldCheck, EyeOff, Trash2 } from 'lucide-react';
 import { AccountIntegration } from './AccountIntegration';
 import { GEO_HUBS, GeoHub } from '../utils/geo';
@@ -342,6 +342,16 @@ export default function GeoSearchController({
   };
 
 
+
+  const hasTriggeredMountGps = useRef(false);
+
+  useEffect(() => {
+    if (!hasTriggeredMountGps.current) {
+        hasTriggeredMountGps.current = true;
+        triggerGpsLookup();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Complete cleanup / Untraceable mode transition
   const handlePurgeAllTracks = () => {
