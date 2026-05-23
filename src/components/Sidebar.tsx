@@ -49,47 +49,46 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpenTermin
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`
-                flex items-center gap-6 p-4 rounded-3xl transition-all relative group
-                ${isActive 
-                  ? 'bg-brand-green/10 text-brand-green' 
-                  : 'text-white/20 hover:text-white hover:bg-white/5'}
-              `}
-            >
-              <item.icon className={`w-6 h-6 shrink-0 transition-all ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-              <span className={`
-                text-[10px] font-black uppercase tracking-widest whitespace-nowrap hidden group-hover/sidebar:block
-                animate-in fade-in slide-in-from-left-4 duration-300
-              `}>
-                {item.label}
-              </span>
-              {isActive && (
-                <motion.div 
-                  layoutId="active-indicator"
-                  className="absolute left-0 w-1 h-8 bg-brand-green rounded-r-full shadow-[0_0_10px_#00FF41]"
-                />
-              )}
-            </button>
+          <button
+            onClick={() => setActiveTab(item.id)}
+            className={`
+              flex items-center gap-6 p-4 rounded-full transition-all relative group
+              ${isActive 
+                ? 'bg-primary/10 text-primary' 
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5'}
+            `}
+          >
+            <item.icon className={`w-6 h-6 shrink-0 transition-all ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+            <span className={`
+              text-[10px] font-black uppercase tracking-widest whitespace-nowrap hidden group-hover/sidebar:block
+              animate-in fade-in slide-in-from-left-4 duration-300
+            `}>
+              {item.label}
+            </span>
+            {isActive && (
+              <motion.div 
+                layoutId="active-indicator"
+                className="absolute left-0 w-1.5 h-10 bg-primary rounded-r-full shadow-[0_0_15px_rgba(45,212,191,0.4)]"
+              />
+            )}
+          </button>
           );
         })}
       </nav>
 
-      <div className="px-4 mt-auto flex flex-col gap-2">
-         <button 
-           onClick={onOpenTerminal}
-           className="flex items-center gap-6 p-4 rounded-3xl text-white/20 hover:text-brand-green hover:bg-brand-green/5 transition-all group"
-         >
-           <TerminalIcon className="w-6 h-6 shrink-0 group-hover:scale-110" />
-           <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap hidden group-hover/sidebar:block">Terminal</span>
-         </button>
-         <button className="flex items-center gap-6 p-4 rounded-3xl text-white/20 hover:text-white hover:bg-white/5 transition-all group">
-           <Settings className="w-6 h-6 shrink-0 group-hover:rotate-45" />
-           <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap hidden group-hover/sidebar:block">Settings</span>
-         </button>
-      </div>
+       <div className="px-4 mt-auto flex flex-col gap-2">
+          <button 
+            onClick={onOpenTerminal}
+            className="flex items-center gap-6 p-4 rounded-full text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all group"
+          >
+            <TerminalIcon className="w-6 h-6 shrink-0 group-hover:scale-110" />
+            <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap hidden group-hover/sidebar:block">Terminal</span>
+          </button>
+          <button className="flex items-center gap-6 p-4 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-all group">
+            <Settings className="w-6 h-6 shrink-0 group-hover:rotate-45" />
+            <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap hidden group-hover/sidebar:block">Settings</span>
+          </button>
+       </div>
     </aside>
   );
 };

@@ -149,25 +149,36 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
       transition={{ duration: 0.3, delay: (idx % 20) * 0.05 }}
       layout
       onClick={() => playMedia(item)}
-      className={`bento-card p-4 group cursor-pointer relative overflow-hidden transition-all border-[var(--md-sys-color-outline-variant)] hover:border-brand-green/30 ${isPlayingNow ? 'border-brand-green/50 shadow-[0_0_15px_rgba(34,197,94,0.15)] bg-brand-green/10' : 'bg-[var(--md-sys-color-surface-container)] hover:bg-white/[0.08]'} ${(item.health === 'broken' || item.health === 'degraded') ? 'border-red-500/50 shadow-[inset_0_0_10px_rgba(239,68,68,0.2)]' : ''}`}
+      className={`m3-card group cursor-pointer relative transition-all border-outline-variant hover:border-primary/30 ${isPlayingNow ? 'border-primary/50 shadow-[0_0_15px_rgba(var(--md-sys-color-primary-rgb),0.15)] bg-primary-container/20' : 'bg-surface-container hover:bg-surface-container-high'} ${(item.health === 'broken' || item.health === 'degraded') ? 'border-red-500/50 shadow-[inset_0_0_10px_rgba(239,68,68,0.2)]' : ''}`}
     >
         {(item.health === 'broken' || item.health === 'degraded') && (
-           <div className="absolute inset-0 border border-red-500/40 rounded-3xl animate-pulse pointer-events-none" />
+           <div className="absolute inset-0 border border-red-500/40 rounded-[24px] animate-pulse pointer-events-none" />
         )}
         <div className="flex justify-between items-start mb-4">
-          <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center border border-[var(--md-sys-color-outline-variant)] group-hover:border-brand-green/30 transition-all">
-            {item.type === 'radio' && <Radio className="w-4 h-4 text-brand-cyan" />}
-            {item.type === 'audio' && <Headphones className="w-4 h-4 text-brand-cyan" />}
-            {item.type === 'tv' && <Tv className="w-4 h-4 text-brand-cyan" />}
-            {item.type === 'video_stream' && <MonitorPlay className="w-4 h-4 text-brand-cyan" />}
-            {item.type === 'video' && <Video className="w-4 h-4 text-brand-cyan" />}
-            {item.type === 'live_cam' && <Monitor className="w-4 h-4 text-brand-green" />}
+          <motion.div 
+            animate={isPlayingNow ? {
+              scale: [1, 1.1, 1],
+              opacity: [0.7, 1, 0.7]
+            } : {}}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className={`w-10 h-10 bg-black rounded-lg flex items-center justify-center border transition-all ${isPlayingNow ? 'border-primary shadow-[0_0_10px_rgba(var(--md-sys-color-primary-rgb),0.3)]' : 'border-outline-variant group-hover:border-primary/30'}`}
+          >
+            {item.type === 'radio' && <Radio className={`w-4 h-4 ${isPlayingNow ? 'text-primary' : 'text-brand-cyan'}`} />}
+            {item.type === 'audio' && <Headphones className={`w-4 h-4 ${isPlayingNow ? 'text-primary' : 'text-brand-cyan'}`} />}
+            {item.type === 'tv' && <Tv className={`w-4 h-4 ${isPlayingNow ? 'text-primary' : 'text-brand-cyan'}`} />}
+            {item.type === 'video_stream' && <MonitorPlay className={`w-4 h-4 ${isPlayingNow ? 'text-primary' : 'text-brand-cyan'}`} />}
+            {item.type === 'video' && <Video className={`w-4 h-4 ${isPlayingNow ? 'text-primary' : 'text-brand-cyan'}`} />}
+            {item.type === 'live_cam' && <Monitor className="w-4 h-4 text-primary" />}
             {item.type === 'media' && <Zap className="w-4 h-4 text-yellow-500" />}
             {item.type === 'image' && <ImageIcon className="w-4 h-4 text-purple-400" />}
             {item.type === 'document' && <FileText className="w-4 h-4 text-blue-400" />}
             {item.type === 'rom' && <Gamepad2 className="w-4 h-4 text-orange-400" />}
             {item.type === 'book' && <Book className="w-4 h-4 text-amber-500" />}
-          </div>
+          </motion.div>
           {(item.health === 'broken' || (item.relevance_score !== undefined && item.relevance_score < 0.3)) && (
              <div className="absolute top-2 left-12 flex items-center justify-center bg-red-500/20 text-red-500 p-0.5 rounded-full border border-red-500/30 animate-[bounce_1s_infinite]">
                 <AlertCircle className="w-3 h-3" />
@@ -177,10 +188,10 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
              <div className="flex items-center gap-1.5">
                 <div className="flex gap-0.5">
                   {[1,2,3,4].map(i => (
-                    <div key={i} className={`w-1 h-3 rounded-full ${i <= (item.relevance_score! * 4) ? 'bg-brand-green shadow-[0_0_5px_#00FF41]' : 'bg-white/10'}`} />
+                    <div key={i} className={`w-1 h-3 rounded-full ${i <= (item.relevance_score! * 4) ? 'bg-primary shadow-[0_0_5px_rgba(var(--md-sys-color-primary-rgb),0.5)]' : 'bg-outline-variant/30'}`} />
                   ))}
                 </div>
-                <span className="text-[10px] font-black text-brand-green">{(item.relevance_score! * 100).toFixed(0)}%</span>
+                <span className="text-[10px] font-black text-primary">{(item.relevance_score! * 100).toFixed(0)}%</span>
              </div>
               {item.service && (
                  <span className="text-[7px] font-black font-mono px-1 rounded-sm bg-brand-cyan/20 text-brand-cyan uppercase tracking-tighter whitespace-nowrap">
@@ -189,9 +200,9 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
               )}
           </div>
         </div>
-        <h4 className="text-xs font-black text-white leading-tight group-hover:text-brand-green transition-all line-clamp-1 mb-1 items-center gap-2 flex">
+        <h4 className="text-xs font-black text-on-surface leading-tight group-hover:text-primary transition-all line-clamp-1 mb-1 items-center gap-2 flex">
            {item.name}
-           {item.quality && <span className="text-[7px] px-1 bg-white/10 rounded-sm font-mono text-white/50">{item.quality}</span>}
+           {item.quality && <span className="text-[7px] px-1 bg-surface-container-highest rounded-sm font-mono text-on-surface-variant">{item.quality}</span>}
         </h4>
         <div className="flex items-center gap-2 mb-2">
            {item.language && (
@@ -200,7 +211,7 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
                {item.language}
              </span>
            )}
-           {item.is_dubbed && <span title="Dubbed"><Mic className="w-2.5 h-2.5 text-brand-green/60" /></span>}
+           {item.is_dubbed && <span title="Dubbed"><Mic className="w-2.5 h-2.5 text-primary/60" /></span>}
            {item.is_subtitled && <span title="Subtitled"><Subtitles className="w-2.5 h-2.5 text-brand-cyan/60" /></span>}
         </div>
         <div className="flex items-center gap-2 mb-3 overflow-hidden">
@@ -209,22 +220,22 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
             target="_blank" 
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="text-[9px] text-brand-cyan/70 truncate flex-1 flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-[var(--md-sys-color-outline-variant)] shadow-inner font-mono hover:text-brand-cyan hover:bg-brand-cyan/5 transition-all"
+            className="text-[9px] text-on-surface-variant truncate flex-1 flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-lg border border-outline-variant shadow-inner font-mono hover:text-primary hover:bg-primary/5 transition-all"
           >
-             <LinkIcon className="w-3 h-3 text-brand-cyan" />
+             <LinkIcon className="w-3 h-3 text-on-surface-variant" />
              <span className="truncate">{item.url}</span>
           </a>
         </div>
-        <RenderTextWithLinks text={item.description} className="text-[9px] text-white/40 line-clamp-1 mb-2 italic" />
+        <RenderTextWithLinks text={item.description} className="text-[9px] text-on-surface-variant line-clamp-1 mb-2 italic" />
         
-        <div className="h-10 mb-4 opacity-70 relative pointer-events-none rounded overflow-hidden border border-[var(--md-sys-color-outline-variant)] bg-black/20">
+        <div className="h-10 mb-4 opacity-70 relative pointer-events-none rounded overflow-hidden border border-outline-variant bg-black/10">
            <ResponsiveContainer width="100%" height="100%">
              <LineChart data={telemetryData}>
-                <Line type="monotone" dataKey="value" stroke={item.latency! < 100 ? "#00FF41" : "#00f0ff"} strokeWidth={1} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="value" stroke="var(--md-sys-color-primary)" strokeWidth={1} dot={false} isAnimationActive={false} />
              </LineChart>
            </ResponsiveContainer>
-           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end">
-              <span className="text-[6px] font-mono text-white/30 uppercase tracking-widest pl-1 pb-1">Telemetry 60s Track</span>
+           <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent flex items-end">
+              <span className="text-[6px] font-mono text-on-surface-variant uppercase tracking-widest pl-1 pb-1">Telemetry 60s Track</span>
            </div>
         </div>
         
@@ -235,37 +246,37 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               placeholder="Add tag..."
-              className="bg-black/50 border border-[var(--md-sys-color-outline-variant)] rounded px-2 py-1 text-[8px] text-white focus:outline-none focus:border-brand-green/30 flex-1"
+              className="bg-surface-container border border-outline-variant rounded px-2 py-1 text-[8px] text-on-surface focus:outline-none focus:border-primary/30 flex-1"
             />
-            <button type="submit" className="bg-brand-green/20 text-brand-green text-[8px] px-2 rounded hover:bg-brand-green/30">+</button>
+            <button type="submit" className="bg-primary/20 text-primary text-[8px] px-2 rounded hover:bg-primary/30">+</button>
           </form>
 
           <div className="flex items-center justify-between">
             <div className="flex flex-wrap gap-1 flex-1 h-[20px] overflow-hidden">
                {item.type === 'live_cam' && (
-                 <span className="text-[7px] px-1 h-[14px] flex items-center bg-brand-green/15 text-brand-green border border-brand-green/35 rounded uppercase font-black">{getWebcamCategory(item)}</span>
+                 <span className="text-[7px] px-1 h-[14px] flex items-center bg-primary/15 text-primary border border-primary/35 rounded uppercase font-black">{getWebcamCategory(item)}</span>
                )}
                {localTags.slice(0, 3).map((t: string) => (
-                 <span key={t} className="text-[7px] px-1 h-[14px] flex items-center bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded text-white/50 uppercase">{t}</span>
+                 <span key={t} className="text-[7px] px-1 h-[14px] flex items-center bg-surface-container-high border border-outline-variant rounded text-on-surface-variant uppercase">{t}</span>
                ))}
             </div>
             <div className="flex gap-1 shrink-0">
               <button 
                 onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }}
-                className={`p-1 flex items-center justify-center rounded bg-[var(--md-sys-color-surface-container)] transition-all ${isFavorite ? 'text-yellow-500' : 'text-white/20 hover:text-white'}`}
+                className={`p-1 flex items-center justify-center rounded bg-surface-container border border-outline-variant transition-all ${isFavorite ? 'text-yellow-500' : 'text-on-surface-variant hover:text-on-surface'}`}
               >
                 <Star className={`w-3 h-3 ${isFavorite ? 'fill-current' : ''}`} />
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); onAddToPlaylist(item); }}
-                className="p-1 flex items-center justify-center rounded bg-[var(--md-sys-color-surface-container)] text-white/20 hover:text-brand-green hover:bg-brand-green/10 border border-[var(--md-sys-color-outline-variant)] transition-all"
+                className="p-1 flex items-center justify-center rounded bg-surface-container text-on-surface-variant hover:text-primary hover:bg-primary/10 border border-outline-variant transition-all"
                 title="Add to Playlist"
               >
                 <ListPlus className="w-3 h-3" />
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); window.location.href = `vlc://${item.url}`; }}
-                className="p-1 flex items-center justify-center rounded bg-[var(--md-sys-color-surface-container)] text-white/20 hover:text-[#FF8800] hover:bg-[#FF8800]/10 border border-[var(--md-sys-color-outline-variant)] transition-all"
+                className="p-1 flex items-center justify-center rounded bg-surface-container text-on-surface-variant hover:text-[#FF8800] hover:bg-[#FF8800]/10 border border-outline-variant transition-all"
                 title="Open in VLC"
               >
                 <VlcIcon className="w-3 h-3" />
@@ -275,7 +286,7 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="p-1 flex items-center justify-center rounded bg-[var(--md-sys-color-surface-container)] text-white/20 hover:text-brand-cyan hover:bg-brand-cyan/10 border border-[var(--md-sys-color-outline-variant)] transition-all"
+                className="p-1 flex items-center justify-center rounded bg-surface-container text-on-surface-variant hover:text-brand-cyan hover:bg-brand-cyan/10 border border-outline-variant transition-all"
                 title="Open Externally"
               >
                 <ExternalLink className="w-3 h-3" />

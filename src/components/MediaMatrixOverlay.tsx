@@ -95,13 +95,18 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
   };
 
   return (
-    <div className="flex-1 bento-card p-6 flex flex-col">
-      <div className="flex justify-between items-center mb-4">
-         <h3 className="text-xs font-mono text-brand-green tracking-widest uppercase opacity-80 flex items-center gap-2">
-           <div className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse" />
+    <div className="flex-1 m3-card p-6 flex flex-col">
+      <div className="flex justify-between items-center mb-6">
+         <h3 className="text-xs font-mono text-primary tracking-widest uppercase opacity-80 flex items-center gap-3">
+           <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
            Feed Matrix
          </h3>
-         <button onClick={onShowInfo} className="text-[8px] font-black uppercase text-white/30 hover:text-white transition-all bg-white/5 px-2 py-1 rounded">Signal Intel</button>
+         <button 
+           onClick={onShowInfo} 
+           className="text-[10px] font-black uppercase text-on-surface-variant hover:text-on-surface transition-all bg-surface-container-high border border-outline-variant px-3 py-1.5 rounded-full"
+         >
+           Signal Intel
+         </button>
       </div>
       
       <div className="flex-1 grid grid-cols-1 gap-4 h-full relative">
@@ -248,12 +253,12 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
                          </button>
                        ))}
                      </div>
-                     <div className="flex items-center gap-3 bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">
-                        <Waves className="w-3.5 h-3.5 text-brand-cyan opacity-40" />
+                     <div className="flex items-center gap-3 bg-surface-container-high/60 backdrop-blur px-4 py-2 rounded-full border border-outline-variant">
+                        <Waves className="w-4 h-4 text-primary opacity-60" />
                         <input 
                            type="range" min="0" max="1" step="0.1" value={volume} 
                            onChange={(e) => setVolume(parseFloat(e.target.value))}
-                           className="w-20 h-1 bg-white/10 rounded-full appearance-none accent-brand-cyan"
+                           className="w-24 h-1 bg-on-surface/10 rounded-full appearance-none accent-primary cursor-pointer"
                         />
                      </div>
                   </div>

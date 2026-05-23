@@ -51,6 +51,17 @@ const formatTime = (timeInSeconds: number) => {
   const [showDownloads, setShowDownloads] = useState(false);
   const [showIntelDetailModal, setShowIntelDetailModal] = useState(false);
   const [playlistModalItem, setPlaylistModalItem] = useState<MediaResult | null>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('nebula_theme');
+    if (saved) return saved as 'light' | 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  // Theme Sync
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('nebula_theme', theme);
+  }, [theme]);
   const [hoveredMedia, setHoveredMedia] = useState<MediaResult | null>(null);
   const [intelDetailMedia, setIntelDetailMedia] = useState<MediaResult | null>(null);
   const [intelData, setIntelData] = useState<string | null>(null);
@@ -495,6 +506,8 @@ const formatTime = (timeInSeconds: number) => {
           onSearch={handleSearch}
           onRefresh={() => handleSearch(undefined, query)}
           isOnline={isOnline}
+          theme={theme}
+          setTheme={setTheme}
         />
 
         <div className="flex-1 grid grid-cols-12 gap-8 overflow-hidden pb-8">
@@ -504,13 +517,13 @@ const formatTime = (timeInSeconds: number) => {
                  <div className="flex items-center gap-4">
                     <button 
                       onClick={() => setViewMode('matrix')}
-                      className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-2xl border transition-all ${viewMode === 'matrix' ? 'bg-brand-green/10 text-brand-green border-brand-green/30' : 'text-white/30 border-transparent hover:bg-white/5'}`}
+                      className={viewMode === 'matrix' ? 'm3-button-filled' : 'm3-button-tonal'}
                     >
                       Bento Matrix
                     </button>
                     <button 
                       onClick={() => setViewMode('list')}
-                      className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-2xl border transition-all ${viewMode === 'list' ? 'bg-brand-green/10 text-brand-green border-brand-green/30' : 'text-white/30 border-transparent hover:bg-white/5'}`}
+                      className={viewMode === 'list' ? 'm3-button-filled' : 'm3-button-tonal'}
                     >
                       Linear Node Map
                     </button>

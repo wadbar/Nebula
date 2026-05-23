@@ -24,10 +24,8 @@ const SignalTrends: React.FC<SignalTrendsProps> = ({ results }) => {
       .slice(0, 5);
   }, [results]);
 
-  // Stable key based on data content to prevent animation restart on irrelevant renders
-  const chartKey = useMemo(() => {
-    return data.map(d => `${d.name}:${d.value}`).join('|');
-  }, [data]);
+  // Use fixed key to prevent chart flickering during transitions
+  const chartKey = "deterministic-pie-chart";
 
   const COLORS = ['#10b981', '#06b6d4', '#3b82f6', '#f59e0b', '#ef4444'];
 

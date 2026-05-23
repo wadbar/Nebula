@@ -11,7 +11,7 @@ import {
   Cpu, 
   AlertTriangle,
   Info,
-  ChevronDown,
+  ChevronUp,
   Trash2,
   X
 } from 'lucide-react';
@@ -113,12 +113,37 @@ export const FileManagerSection: React.FC<FileManagerProps> = ({ onImportMedia }
   const csvInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const [sortConfig, setSortConfig] = useState<{ key: 'name' | 'type'; direction: 'asc' | 'desc' } | null>(null);
+
   const allFiles = useMemo(() => flattenFiles(mockFiles), []);
 
   const filteredFiles = useMemo(() => {
-    if (!searchQuery) return allFiles;
-    return allFiles.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  }, [allFiles, searchQuery]);
+    let list = allFiles;
+    if (searchQuery) {
+      list = list.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    
+    if (sortConfig) {
+      list = [...list].sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    
+    return list;
+  }, [allFiles, searchQuery, sortConfig]);
+
+  const toggleSort = (key: 'name' | 'type') => {
+    setSortConfig(prev => {
+      if (prev?.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
 
   useEffect(() => {
     localStorage.setItem('nebula_fm_history_v3', JSON.stringify(searchHistory));
@@ -212,7 +237,7 @@ export const FileManagerSection: React.FC<FileManagerProps> = ({ onImportMedia }
          <div className="flex items-center gap-5 w-full md:w-auto">
             <button 
               onClick={() => csvInputRef.current?.click()}
-              className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-primary text-on-primary rounded-[32px] hover:bg-primary/90 transition-all font-black text-sm shadow-2xl active:scale-95 group"
+              className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 m3-button-filled rounded-[32px]"
             >
               <Upload className="w-6 h-6 group-hover:animate-bounce" /> BULK_IMPORT_MATRIX
             </button>
@@ -239,7 +264,7 @@ export const FileManagerSection: React.FC<FileManagerProps> = ({ onImportMedia }
                onBlur={() => setTimeout(() => setShowHistory(false), 200)}
                onChange={(e) => setSearchQuery(e.target.value)}
                onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit(searchQuery)}
-               className="w-full bg-surface-container-highest border-2 border-outline-variant rounded-[40px] pl-20 pr-16 py-6 focus:border-primary focus:ring-8 focus:ring-primary/10 transition-all text-on-surface placeholder:text-on-surface-variant font-mono text-lg shadow-inner"
+               className="w-full m3-input pl-20 pr-16 py-6"
              />
              <AnimatePresence>
                {showHistory && searchHistory.length > 0 && (
@@ -278,8 +303,33 @@ export const FileManagerSection: React.FC<FileManagerProps> = ({ onImportMedia }
              </AnimatePresence>
           </div>
 
-          <div className="bg-surface-container/10 border border-outline-variant rounded-[60px] p-4 shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden">
-             <div className="max-h-[700px] overflow-y-auto custom-scrollbar px-4 py-6 space-y-4">
+          <div className="bg-surface-container/10 border border-outline-variant rounded-[48px] shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden">
+             {/* Sort Header */}
+             <div className="flex items-center gap-8 px-12 py-6 border-b border-outline-variant bg-surface-container-high/30">
+                <button 
+                  onClick={() => toggleSort('name')}
+                  className="flex flex-1 items-center gap-3 text-[11px] font-black uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors group/header"
+                >
+                  File Name
+                  <div className="flex flex-col -gap-1 opacity-40 group-hover/header:opacity-100 transition-opacity">
+                    <ChevronUp className={`w-3 h-3 ${sortConfig?.key === 'name' && sortConfig.direction === 'asc' ? 'text-primary opacity-100' : ''}`} />
+                    <ChevronDown className={`w-3 h-3 ${sortConfig?.key === 'name' && sortConfig.direction === 'desc' ? 'text-primary opacity-100' : ''}`} />
+                  </div>
+                </button>
+                <div className="w-px h-6 bg-outline-variant" />
+                <button 
+                  onClick={() => toggleSort('type')}
+                  className="flex items-center gap-3 text-[11px] font-black uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors group/header w-32 justify-end"
+                >
+                  Type
+                  <div className="flex flex-col -gap-1 opacity-40 group-hover/header:opacity-100 transition-opacity">
+                    <ChevronUp className={`w-3 h-3 ${sortConfig?.key === 'type' && sortConfig.direction === 'asc' ? 'text-primary opacity-100' : ''}`} />
+                    <ChevronDown className={`w-3 h-3 ${sortConfig?.key === 'type' && sortConfig.direction === 'desc' ? 'text-primary opacity-100' : ''}`} />
+                  </div>
+                </button>
+             </div>
+
+             <div className="max-h-[600px] overflow-y-auto custom-scrollbar px-6 py-6 space-y-3">
                <AnimatePresence mode="popLayout">
                   {filteredFiles.map((file, idx) => (
                      <motion.div
@@ -385,7 +435,7 @@ export const FileManagerSection: React.FC<FileManagerProps> = ({ onImportMedia }
                     <button 
                       id="platform-select"
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className={`w-full border-2 rounded-[28px] px-8 py-6 text-base font-black font-mono flex items-center justify-between transition-all duration-300 group/btn ${isDropdownOpen ? 'active' : ''}`}
+                      className={`w-full border-2 rounded-[28px] px-8 py-6 text-base font-black font-mono flex items-center justify-between transition-all duration-300 group/btn bg-surface-container-high border-outline-variant text-on-surface ${isDropdownOpen ? 'border-primary ring-4 ring-primary/10' : ''}`}
                     >
                       <span className="tracking-tighter">{selectedArch}</span>
                       <ChevronDown className={`w-6 h-6 transition-transform duration-500 ${isDropdownOpen ? 'rotate-180' : ''}`} />

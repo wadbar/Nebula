@@ -423,34 +423,34 @@ export default function AntennaInterface() {
         <div className="flex gap-2 shrink-0">
           <button
             onClick={() => setIsEngaged(!isEngaged)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-extrabold uppercase tracking-widest border transition-all ${
+            className={`flex items-center gap-2 px-6 py-3 rounded-full font-black uppercase tracking-widest transition-all ${
               isEngaged 
-                ? 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20' 
-                : 'bg-brand-green/10 text-brand-green border-brand-green/20 hover:bg-brand-green/20'
+                ? 'bg-error text-on-error hover:bg-error/90 shadow-lg' 
+                : 'm3-button-filled'
             }`}
           >
             {isEngaged ? (
               <>
-                <Square className="w-3.5 h-3.5 fill-current" />
-                DISENGAGE DEVICE
+                <Square className="w-4 h-4 fill-current" />
+                DISENGAGE
               </>
             ) : (
               <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                ENGAGE ANTENNA
+                <Play className="w-4 h-4 fill-current" />
+                ENGAGE
               </>
             )}
           </button>
           <button
             onClick={toggleScan}
-            className={`px-3 py-2.5 rounded-xl border font-bold uppercase transition-all flex items-center gap-2 ${
+            className={`px-6 py-3 rounded-full font-black tracking-widest uppercase transition-all flex items-center gap-2 ${
               isScanning 
-                ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30 animate-pulse' 
-                : 'bg-white/5 border-white/10 hover:bg-white/10 text-white'
+                ? 'bg-primary-container text-on-primary-container border-2 border-primary animate-pulse' 
+                : 'm3-button-tonal'
             }`}
           >
-            <Search className="w-3.5 h-3.5" />
-            {isScanning ? "SWEEPING..." : "AUTO SCAN"}
+            <Search className="w-4 h-4" />
+            {isScanning ? "SWEEPING" : "AUTO_SCAN"}
           </button>
         </div>
       </div>

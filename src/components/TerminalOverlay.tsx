@@ -55,37 +55,37 @@ const TerminalOverlay: React.FC<TerminalOverlayProps> = ({ onClose, addLog, logs
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className={`fixed ${isMaximized ? 'inset-0' : 'bottom-24 right-6 w-full max-w-2xl h-[500px]'} z-[200] bg-black/90 backdrop-blur-2xl border border-brand-green/30 rounded-3xl shadow-[0_0_50px_rgba(0,255,65,0.2)] overflow-hidden flex flex-col`}
-    >
-      <div className="flex items-center justify-between px-6 py-4 border-b border-brand-green/20 bg-brand-green/5">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-brand-green/10 flex items-center justify-center border border-brand-green/30">
-            <Terminal className="w-4 h-4 text-brand-green" />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className={`fixed ${isMaximized ? 'inset-0' : 'bottom-24 right-6 w-full max-w-2xl h-[500px]'} z-[200] bg-surface-container-high/95 backdrop-blur-2xl border border-outline-variant rounded-3xl shadow-2xl overflow-hidden flex flex-col transition-all duration-500`}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant bg-surface-container-highest/30">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
+              <Terminal className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-xs font-black text-on-surface tracking-widest uppercase">System Control Unit</h3>
+              <p className="text-[8px] font-mono text-on-surface-variant uppercase tracking-tighter">Kernel v3.4.0-DEB4-S77</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xs font-black text-white tracking-widest uppercase">System Control Unit</h3>
-            <p className="text-[8px] font-mono text-brand-green/60 uppercase">Kernel v3.4.0-DEB4-S77</p>
+          <div className="flex items-center gap-2">
+             <button 
+               onClick={() => setIsMaximized(!isMaximized)}
+               className="p-2 hover:bg-on-surface/5 rounded-full text-on-surface-variant transition-colors"
+             >
+               {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+             </button>
+             <button 
+               onClick={onClose}
+               className="p-2 hover:bg-error/10 hover:text-error rounded-full text-on-surface-variant transition-colors"
+             >
+               <X className="w-4 h-4" />
+             </button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-           <button 
-             onClick={() => setIsMaximized(!isMaximized)}
-             className="p-2 hover:bg-white/10 rounded-lg text-white/40 transition-colors"
-           >
-             {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-           </button>
-           <button 
-             onClick={onClose}
-             className="p-2 hover:bg-red-500/20 hover:text-red-500 rounded-lg text-white/40 transition-colors"
-           >
-             <X className="w-4 h-4" />
-           </button>
-        </div>
-      </div>
 
       <div className="flex-1 p-6 overflow-y-auto font-mono text-[11px] space-y-4 custom-scrollbar" ref={scrollRef}>
         <div className="space-y-1 mb-8">
@@ -114,19 +114,19 @@ const TerminalOverlay: React.FC<TerminalOverlayProps> = ({ onClose, addLog, logs
         <div className="h-4" />
       </div>
 
-      <div className="p-4 bg-brand-green/5 border-t border-brand-green/20">
-        <form onSubmit={handleCommand} className="flex items-center gap-3 bg-black/60 border border-brand-green/30 rounded-xl px-4 py-2 focus-within:border-brand-green transition-all shadow-inner">
-           <ChevronRight className="w-4 h-4 text-brand-green shrink-0 animate-pulse" />
+      <div className="p-4 bg-surface-container-highest/20 border-t border-outline-variant">
+        <form onSubmit={handleCommand} className="flex items-center gap-3 bg-surface-container-high border border-outline-variant rounded-2xl px-6 py-3 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all shadow-inner">
+           <ChevronRight className="w-5 h-5 text-primary shrink-0 animate-pulse" />
            <input 
              value={terminalInput}
              onChange={(e) => setTerminalInput(e.target.value)}
-             placeholder="Enter kernel command..."
-             className="bg-transparent border-none outline-none text-brand-green font-mono text-xs flex-1 placeholder:text-brand-green/20"
+             placeholder="Execute kernel command segment..."
+             className="bg-transparent border-none outline-none text-on-surface font-mono text-sm flex-1 placeholder:text-on-surface-variant/40"
              autoFocus
            />
-           <div className="flex items-center gap-2 opacity-40">
-              <ShieldAlert className="w-3 h-3 text-red-500" />
-              <Network className="w-3 h-3 text-brand-cyan" />
+           <div className="flex items-center gap-3 opacity-30">
+              <ShieldAlert className="w-4 h-4 text-error" />
+              <Network className="w-4 h-4 text-primary" />
            </div>
         </form>
       </div>
