@@ -24,6 +24,11 @@ const SignalTrends: React.FC<SignalTrendsProps> = ({ results }) => {
       .slice(0, 5);
   }, [results]);
 
+  // Stable key based on data content to prevent animation restart on irrelevant renders
+  const chartKey = useMemo(() => {
+    return data.map(d => `${d.name}:${d.value}`).join('|');
+  }, [data]);
+
   const COLORS = ['#10b981', '#06b6d4', '#3b82f6', '#f59e0b', '#ef4444'];
 
   if (data.length === 0) return null;
@@ -32,7 +37,8 @@ const SignalTrends: React.FC<SignalTrendsProps> = ({ results }) => {
     <motion.section 
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="bg-surface-container rounded-3xl p-6 border border-outline-variant shadow-sm w-full xl:w-1/2 flex flex-col"
+      key="signal-trends-container"
+      className="bg-surface-container rounded-3xl p-6 border border-outline-variant shadow-sm w-full xl:w-1/2 flex flex-col min-h-[250px]"
     >
       <h3 className="text-[10px] sm:text-sm font-black text-on-surface-variant mb-4 flex items-center gap-2">
         <Activity className="w-3 h-3 sm:w-4 sm:h-4 text-brand-green" />
@@ -40,7 +46,7 @@ const SignalTrends: React.FC<SignalTrendsProps> = ({ results }) => {
       </h3>
       <div className="h-48 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+          <PieChart key={chartKey}>
             <Pie
               data={data}
               cx="50%"
@@ -49,9 +55,12 @@ const SignalTrends: React.FC<SignalTrendsProps> = ({ results }) => {
               outerRadius={65}
               paddingAngle={5}
               dataKey="value"
+              animationBegin={0}
+              animationDuration={800}
+              isAnimationActive={true}
             >
-              {data.map((_, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="transparent" />
+              {data.map((entry, index) => (
+                <Cell key={`cell-${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} stroke="transparent" />
               ))}
             </Pie>
             <Tooltip
@@ -59,7 +68,8 @@ const SignalTrends: React.FC<SignalTrendsProps> = ({ results }) => {
                 backgroundColor: 'var(--md-sys-color-surface-container-high)', 
                 borderColor: 'var(--md-sys-color-outline-variant)', 
                 borderRadius: '12px', 
-                fontSize: '10px' 
+                fontSize: '10px',
+                border: '1px solid rgba(255,255,255,0.1)'
               }}
               itemStyle={{ color: 'var(--md-sys-color-on-surface)' }}
             />
@@ -67,7 +77,7 @@ const SignalTrends: React.FC<SignalTrendsProps> = ({ results }) => {
               verticalAlign="middle" 
               align="right" 
               layout="vertical"
-              formatter={(value) => <span className="text-[9px] uppercase tracking-wider text-white/60">{value}</span>}
+              formatter={(value) => <span className="text-[9px] uppercase tracking-wider text-white/60 font-bold">{value}</span>}
             />
           </PieChart>
         </ResponsiveContainer>

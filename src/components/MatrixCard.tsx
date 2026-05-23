@@ -16,7 +16,11 @@ import {
   Link as LinkIcon, 
   Star, 
   ListPlus, 
-  ExternalLink 
+  ExternalLink,
+  Globe,
+  Subtitles,
+  Mic,
+  Monitor as VlcIcon
 } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { MediaResult } from '../types';
@@ -187,7 +191,18 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
         </div>
         <h4 className="text-xs font-black text-white leading-tight group-hover:text-brand-green transition-all line-clamp-1 mb-1 items-center gap-2 flex">
            {item.name}
+           {item.quality && <span className="text-[7px] px-1 bg-white/10 rounded-sm font-mono text-white/50">{item.quality}</span>}
         </h4>
+        <div className="flex items-center gap-2 mb-2">
+           {item.language && (
+             <span className="flex items-center gap-1 text-[8px] text-brand-cyan/60 uppercase font-bold">
+               <Globe className="w-2.5 h-2.5" />
+               {item.language}
+             </span>
+           )}
+           {item.is_dubbed && <span title="Dubbed"><Mic className="w-2.5 h-2.5 text-brand-green/60" /></span>}
+           {item.is_subtitled && <span title="Subtitled"><Subtitles className="w-2.5 h-2.5 text-brand-cyan/60" /></span>}
+        </div>
         <div className="flex items-center gap-2 mb-3 overflow-hidden">
           <a 
             href={item.url} 
@@ -247,6 +262,13 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
                 title="Add to Playlist"
               >
                 <ListPlus className="w-3 h-3" />
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); window.location.href = `vlc://${item.url}`; }}
+                className="p-1 flex items-center justify-center rounded bg-[var(--md-sys-color-surface-container)] text-white/20 hover:text-[#FF8800] hover:bg-[#FF8800]/10 border border-[var(--md-sys-color-outline-variant)] transition-all"
+                title="Open in VLC"
+              >
+                <VlcIcon className="w-3 h-3" />
               </button>
               <a 
                 href={item.url}

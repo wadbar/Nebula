@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Sparkles,
@@ -19,10 +19,254 @@ import {
   Edit3,
   FileJson,
   FileText as FileM3U,
+  Monitor,
+  Globe,
+  Subtitles as SubtitlesIcon,
+  Mic,
+  RefreshCw,
 } from "lucide-react";
 import { MediaResult, Playlist } from "../types";
 import { SearchTrends } from "./SearchTrends";
 import SignalTrends from "./SignalTrends";
+
+const MediaCard = ({ 
+  item, 
+  index, 
+  viewMode, 
+  selectedItems, 
+  toggleSelection, 
+  playMedia, 
+  onAddToPlaylist, 
+  handleDownload, 
+  analyzeMedia, 
+  isAnalyzing 
+}: { 
+  item: MediaResult; 
+  index: number;
+  viewMode: 'matrix' | 'list';
+  selectedItems: Set<string>;
+  toggleSelection: (e: React.MouseEvent, id: string) => void;
+  playMedia: (m: MediaResult) => void;
+  onAddToPlaylist?: (media: MediaResult) => void;
+  handleDownload?: (media: MediaResult) => void;
+  analyzeMedia: (item: MediaResult, e?: React.MouseEvent) => void;
+  isAnalyzing: string | null;
+}) => {
+  const isSelected = selectedItems.has(item.id!);
+
+  const handleOpenVLC = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Use protocol handler for VLC
+    const vlcUrl = `vlc://${item.url}`;
+    window.location.href = vlcUrl;
+  };
+
+  if (viewMode === "list") {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2, delay: (index % 10) * 0.02 }}
+        className={`bento-card p-3 transition-all group relative overflow-hidden flex items-center justify-between gap-4 cursor-pointer hover:border-brand-green/50 ${isSelected ? "bg-brand-green/10 border-brand-green/30" : "bg-black/40"}`}
+        onClick={() => playMedia(item)}
+      >
+        <div className="flex items-center gap-3 truncate">
+          <button
+            onClick={(e) => toggleSelection(e, item.id!)}
+            className="text-white/40 hover:text-brand-green p-1 transition-colors"
+          >
+            {isSelected ? (
+              <CheckSquare className="w-4 h-4 text-brand-green" />
+            ) : (
+              <Square className="w-4 h-4" />
+            )}
+          </button>
+          <div className="flex flex-col truncate">
+            <div className="flex items-center gap-2">
+              <span className="text-white font-mono text-sm truncate group-hover:text-brand-green">
+                {item.name}
+              </span>
+              {item.quality && (
+                <span className="text-[8px] px-1 py-0.5 rounded bg-white/5 border border-white/10 text-white/40 font-mono">
+                  {item.quality}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-[9px] text-white/40 uppercase tracking-widest truncate">
+              <span>{item.category || item.type}</span>
+              {item.language && (
+                <span className="flex items-center gap-1 text-brand-cyan/60">
+                  <Globe className="w-2.5 h-2.5" />
+                  {item.language}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex gap-1">
+             {item.is_dubbed && <span title="Dubbed"><Mic className="w-3 h-3 text-brand-green/60" /></span>}
+             {item.is_subtitled && <span title="Subtitled"><SubtitlesIcon className="w-3 h-3 text-brand-cyan/60" /></span>}
+          </div>
+
+          {item.relevance_score !== undefined && (
+            <span className="hidden sm:inline-flex text-[9px] font-mono px-2 py-0.5 rounded bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20">
+              {item.relevance_score.toFixed(2)}
+            </span>
+          )}
+          <div className="flex items-center gap-1.5">
+            <button
+               onClick={handleOpenVLC}
+               title="Open in VLC"
+               className="p-1.5 text-white/40 hover:text-[#FF8800] hover:bg-[#FF8800]/10 rounded transition-colors"
+            >
+               <Monitor className="w-4 h-4" />
+            </button>
+            {onAddToPlaylist && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToPlaylist(item);
+                }}
+                className="p-1.5 text-white/40 hover:text-brand-green hover:bg-brand-green/10 rounded transition-colors"
+              >
+                <ListPlus className="w-4 h-4" />
+              </button>
+            )}
+            {handleDownload && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload(item);
+                }}
+                className="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={(e) => analyzeMedia(item, e)}
+              disabled={isAnalyzing === item.id}
+              className="p-1.5 text-white/40 hover:text-brand-cyan hover:bg-brand-cyan/10 rounded transition-colors"
+            >
+              {isAnalyzing === item.id ? (
+                <Loader2 className="w-4 h-4 animate-spin text-brand-cyan" />
+              ) : (
+                <Sparkles className="w-4 h-4 text-brand-cyan" />
+              )}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2, delay: (index % 10) * 0.02 }}
+      className={`bento-card p-4 transition-all group relative overflow-hidden cursor-pointer hover:border-brand-green/50 ${isSelected ? "bg-brand-green/10 border-brand-green/30" : "bg-black/40"}`}
+      onClick={() => playMedia(item)}
+    >
+      <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={handleOpenVLC}
+          title="Open in VLC"
+          className="p-1.5 text-white/60 hover:text-[#FF8800] bg-black/50 hover:bg-[#FF8800]/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-[#FF8800]/20"
+        >
+          <Monitor className="w-3 h-3" />
+        </button>
+        {handleDownload && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDownload(item);
+            }}
+            className="p-1.5 text-white/60 hover:text-white bg-black/50 hover:bg-white/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-white/20"
+          >
+            <Download className="w-3 h-3" />
+          </button>
+        )}
+        {onAddToPlaylist && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToPlaylist(item);
+            }}
+            className="p-1.5 text-white/60 hover:text-brand-green bg-black/50 hover:bg-brand-green/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-brand-green/20"
+          >
+            <ListPlus className="w-3 h-3" />
+          </button>
+        )}
+        <button
+          onClick={(e) => toggleSelection(e, item.id!)}
+          className="p-1.5 text-white/60 hover:text-brand-green bg-black/50 hover:bg-brand-green/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-brand-green/20"
+        >
+          {isSelected ? (
+            <CheckSquare className="w-3 h-3 text-brand-green" />
+          ) : (
+            <Square className="w-3 h-3" />
+          )}
+        </button>
+      </div>
+      <div className="flex justify-between items-start mb-2 pr-16">
+        <div className="flex flex-col gap-0.5">
+          <p className="text-white font-mono text-sm group-hover:text-brand-green truncate">
+            {item.name}
+          </p>
+          <div className="flex items-center gap-2">
+            {item.quality && (
+              <span className="text-[8px] font-mono text-white/30 tracking-tight">[{item.quality}]</span>
+            )}
+            {item.language && (
+              <span className="text-[8px] font-mono text-brand-cyan/50 flex items-center gap-1 uppercase tracking-tight">
+                <Globe className="w-2.5 h-2.5" />
+                {item.language}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1 mb-6">
+        <div className="flex items-center justify-between">
+           <span className="text-[10px] text-white/40 uppercase tracking-widest truncate">
+             {item.category || item.type}
+           </span>
+           <div className="flex gap-1.5">
+              {item.is_dubbed && <span title="Audio Enriched / Dubbed"><Mic className="w-3 h-3 text-brand-green/40" /></span>}
+              {item.is_subtitled && <span title="CC / Subtitles"><SubtitlesIcon className="w-3 h-3 text-brand-cyan/40" /></span>}
+           </div>
+        </div>
+        <span className="text-[10px] text-brand-cyan/60 line-clamp-2 leading-relaxed h-8">
+          {item.description}
+        </span>
+      </div>
+      <div className="absolute bottom-3 left-4 flex gap-2">
+        {item.relevance_score !== undefined && (
+          <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20">
+            {item.relevance_score.toFixed(2)} REL
+          </span>
+        )}
+      </div>
+      <button
+        onClick={(e) => analyzeMedia(item, e)}
+        className="absolute bottom-2 right-2 p-2 hover:bg-brand-cyan/20 rounded-full transition-colors"
+        disabled={isAnalyzing === item.id}
+      >
+        {isAnalyzing === item.id ? (
+          <Loader2 className="w-4 h-4 animate-spin text-brand-cyan" />
+        ) : (
+          <Sparkles className="w-4 h-4 text-brand-cyan" />
+        )}
+      </button>
+    </motion.div>
+  );
+};
 
 export const DiscoverView = ({
   playMedia,
@@ -51,6 +295,10 @@ export const DiscoverView = ({
   const [relevanceFilter, setRelevanceFilter] = useState<
     "ALL" | "HIGH" | "MEDIUM" | "LOW"
   >("ALL");
+  const [langFilter, setLangFilter] = useState<string>("ALL");
+  const [dubbedFilter, setDubbedFilter] = useState<boolean | 'ALL'>('ALL');
+  const [subtitledFilter, setSubtitledFilter] = useState<boolean | 'ALL'>('ALL');
+
   const [sortParam, setSortParam] = useState<"Relevance" | "Name" | "Distance">(
     "Relevance",
   );
@@ -63,52 +311,46 @@ export const DiscoverView = ({
   const [isRenaming, setIsRenaming] = useState(false);
   const [renamePrefix, setRenamePrefix] = useState("");
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchApiData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+  const fetchApiData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        const [trendingRes, curatedRes] = await Promise.all([
-          fetch("/api/discover", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: "trending media" }),
-          }),
-          fetch("/api/discover", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: "curated audio streams" }),
-          }),
-        ]);
+      const [trendingRes, curatedRes] = await Promise.all([
+        fetch("/api/discover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: "trending global signals and media" }),
+        }),
+        fetch("/api/discover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: "curated high quality streams" }),
+        }),
+      ]);
 
-        if (!trendingRes.ok || !curatedRes.ok)
-          throw new Error("Failed to fetch discovered signals.");
+      if (!trendingRes.ok || !curatedRes.ok)
+        throw new Error("Failed to fetch discovered signals.");
 
-        const trendingData = await trendingRes.json();
-        const curatedData = await curatedRes.json();
+      const trendingData = await trendingRes.json();
+      const curatedData = await curatedRes.json();
 
-        if (isMounted) {
-          setTrending(
-            trendingData.map((d: any) => ({ ...d, id: d.id || d.url })),
-          );
-          setCurated(
-            curatedData.map((d: any) => ({ ...d, id: d.id || d.url })),
-          );
-        }
-      } catch (err: any) {
-        if (isMounted) setError(err.message || "Signal interception failed");
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
-
-    fetchApiData();
-    return () => {
-      isMounted = false;
-    };
+      setTrending(
+        trendingData.map((d: any) => ({ ...d, id: d.id || d.url })),
+      );
+      setCurated(
+        curatedData.map((d: any) => ({ ...d, id: d.id || d.url })),
+      );
+    } catch (err: any) {
+      setError(err.message || "Signal interception failed");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchApiData();
+  }, [fetchApiData]);
 
   const analyzeMedia = async (item: MediaResult, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -162,7 +404,25 @@ export const DiscoverView = ({
           break;
       }
 
-      return relevanceMatch;
+      // Language Filter
+      let langMatch = true;
+      if (langFilter !== "ALL") {
+         langMatch = item.language === langFilter || (item.audio_languages?.includes(langFilter)) || false;
+      }
+
+      // Dubbed Filter
+      let dubbedMatch = true;
+      if (dubbedFilter !== 'ALL') {
+        dubbedMatch = !!item.is_dubbed === dubbedFilter;
+      }
+
+      // Subtitled Filter
+      let subMatch = true;
+      if (subtitledFilter !== 'ALL') {
+        subMatch = !!item.is_subtitled === subtitledFilter;
+      }
+
+      return relevanceMatch && langMatch && dubbedMatch && subMatch;
     });
 
     return filtered.sort((a, b) => {
@@ -177,11 +437,11 @@ export const DiscoverView = ({
 
   const filteredTrending = useMemo(
     () => filterAndSort(trending),
-    [trending, relevanceFilter, sortParam],
+    [trending, relevanceFilter, sortParam, langFilter, dubbedFilter, subtitledFilter],
   );
   const filteredCurated = useMemo(
     () => filterAndSort(curated),
-    [curated, relevanceFilter, sortParam],
+    [curated, relevanceFilter, sortParam, langFilter, dubbedFilter, subtitledFilter],
   );
 
   const toggleSelection = (e: React.MouseEvent, id: string) => {
@@ -272,192 +532,48 @@ export const DiscoverView = ({
     setSelectedItems(new Set());
   };
 
-const MediaCard = ({ 
-  item, 
-  index, 
-  viewMode, 
-  selectedItems, 
-  toggleSelection, 
-  playMedia, 
-  onAddToPlaylist, 
-  handleDownload, 
-  analyzeMedia, 
-  isAnalyzing 
-}: { 
-  item: MediaResult; 
-  index: number;
-  viewMode: 'matrix' | 'list';
-  selectedItems: Set<string>;
-  toggleSelection: (e: React.MouseEvent, id: string) => void;
-  playMedia: (m: MediaResult) => void;
-  onAddToPlaylist?: (media: MediaResult) => void;
-  handleDownload?: (media: MediaResult) => void;
-  analyzeMedia: (item: MediaResult, e?: React.MouseEvent) => void;
-  isAnalyzing: string | null;
-}) => {
-  const isSelected = selectedItems.has(item.id!);
-
-  if (viewMode === "list") {
-    return (
-      <motion.div
-        layout
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.3, delay: (index % 20) * 0.03 }}
-        className={`bento-card p-3 transition-all group relative overflow-hidden flex items-center justify-between gap-4 cursor-pointer hover:border-brand-green/50 ${isSelected ? "bg-brand-green/10 border-brand-green/30" : "bg-black/40"}`}
-        onClick={() => playMedia(item)}
-      >
-        <div className="flex items-center gap-3 truncate">
-          <button
-            onClick={(e) => toggleSelection(e, item.id!)}
-            className="text-white/40 hover:text-brand-green p-1 transition-colors"
-          >
-            {isSelected ? (
-              <CheckSquare className="w-4 h-4 text-brand-green" />
-            ) : (
-              <Square className="w-4 h-4" />
-            )}
-          </button>
-          <div className="flex flex-col truncate">
-            <span className="text-white font-mono text-sm truncate group-hover:text-brand-green">
-              {item.name}
-            </span>
-            <span className="text-[10px] text-white/40 uppercase tracking-widest truncate">
-              {item.category || item.type}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 shrink-0">
-          {item.relevance_score !== undefined && (
-            <span className="hidden sm:inline-flex text-[9px] font-mono px-2 py-0.5 rounded bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20">
-              {item.relevance_score.toFixed(2)}
-            </span>
-          )}
-          <div className="flex items-center gap-2">
-            {onAddToPlaylist && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAddToPlaylist(item);
-                }}
-                className="p-1.5 text-white/40 hover:text-brand-green hover:bg-brand-green/10 rounded transition-colors"
-              >
-                <ListPlus className="w-4 h-4" />
-              </button>
-            )}
-            {handleDownload && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDownload(item);
-                }}
-                className="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-            )}
-            <button
-              onClick={(e) => analyzeMedia(item, e)}
-              disabled={isAnalyzing === item.id}
-              className="p-1.5 text-white/40 hover:text-brand-cyan hover:bg-brand-cyan/10 rounded transition-colors"
-            >
-              {isAnalyzing === item.id ? (
-                <Loader2 className="w-4 h-4 animate-spin text-brand-cyan" />
-              ) : (
-                <Sparkles className="w-4 h-4 text-brand-cyan" />
-              )}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.3, delay: (index % 20) * 0.05 }}
-      className={`bento-card p-4 transition-all group relative overflow-hidden cursor-pointer hover:border-brand-green/50 ${isSelected ? "bg-brand-green/10 border-brand-green/30" : "bg-black/40"}`}
-      onClick={() => playMedia(item)}
-    >
-      <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-        {handleDownload && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDownload(item);
-            }}
-            className="p-1.5 text-white/60 hover:text-white bg-black/50 hover:bg-white/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-white/20"
-          >
-            <Download className="w-3 h-3" />
-          </button>
-        )}
-        {onAddToPlaylist && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToPlaylist(item);
-            }}
-            className="p-1.5 text-white/60 hover:text-brand-green bg-black/50 hover:bg-brand-green/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-brand-green/20"
-          >
-            <ListPlus className="w-3 h-3" />
-          </button>
-        )}
-        <button
-          onClick={(e) => toggleSelection(e, item.id!)}
-          className="p-1.5 text-white/60 hover:text-brand-green bg-black/50 hover:bg-brand-green/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-brand-green/20"
-        >
-          {isSelected ? (
-            <CheckSquare className="w-3 h-3 text-brand-green" />
-          ) : (
-            <Square className="w-3 h-3" />
-          )}
-        </button>
-      </div>
-      <div className="flex justify-between items-start mb-2 pr-12">
-        <p className="text-white font-mono text-sm group-hover:text-brand-green truncate">
-          {item.name}
-        </p>
-      </div>
-      <div className="flex flex-col gap-1 mb-6">
-        <span className="text-[10px] text-white/40 uppercase tracking-widest truncate">
-          {item.category || item.type}
-        </span>
-        <span className="text-[10px] text-brand-cyan/60 line-clamp-2 leading-relaxed">
-          {item.description}
-        </span>
-      </div>
-      <div className="absolute bottom-3 left-4 flex gap-2">
-        {item.relevance_score !== undefined && (
-          <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20">
-            {item.relevance_score.toFixed(2)} REL
-          </span>
-        )}
-      </div>
-      <button
-        onClick={(e) => analyzeMedia(item, e)}
-        className="absolute bottom-2 right-2 p-2 hover:bg-brand-cyan/20 rounded-full transition-colors"
-        disabled={isAnalyzing === item.id}
-      >
-        {isAnalyzing === item.id ? (
-          <Loader2 className="w-4 h-4 animate-spin text-brand-cyan" />
-        ) : (
-          <Sparkles className="w-4 h-4 text-brand-cyan" />
-        )}
-      </button>
-    </motion.div>
-  );
-};
-
   return (
     <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 h-full overflow-y-auto relative custom-scrollbar pb-32">
+      {/* Live Scraper Meta-Overlay */}
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-24 left-1/2 -translate-x-1/2 z-[300] bg-black/90 backdrop-blur-3xl border border-brand-cyan/20 px-6 py-3 rounded-2xl flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+          >
+            <div className="flex gap-1.5">
+               <div className="w-1.5 h-6 bg-brand-cyan/30 rounded-full animate-[bounce_1s_infinite]" style={{animationDelay: '0ms'}} />
+               <div className="w-1.5 h-6 bg-brand-cyan/60 rounded-full animate-[bounce_1s_infinite]" style={{animationDelay: '200ms'}} />
+               <div className="w-1.5 h-6 bg-brand-cyan/90 rounded-full animate-[bounce_1s_infinite]" style={{animationDelay: '400ms'}} />
+            </div>
+            <div className="flex flex-col">
+               <span className="text-[10px] font-black text-brand-cyan uppercase tracking-[0.2em] animate-pulse">Deep Scraper Active</span>
+               <span className="text-[8px] font-mono text-white/40 uppercase">Crawling Global Media Indexers...</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
         <h2 className="text-lg sm:text-xl font-black text-on-surface flex items-center gap-2">
           <Sparkles className="text-primary w-5 h-5" /> DISCOVER_SYNC
+          <button 
+            onClick={() => {
+              // Add a small rotation animation to the icon
+              const btn = document.getElementById('refresh-sync-btn');
+              if (btn) btn.classList.add('animate-spin');
+              fetchApiData();
+              setTimeout(() => {
+                if (btn) btn.classList.remove('animate-spin');
+              }, 1000);
+            }} 
+            disabled={isLoading}
+            className="p-1 px-2 border border-white/10 rounded-md hover:bg-white/5 transition-colors"
+          >
+            <RefreshCw id="refresh-sync-btn" className={`w-3 h-3 text-white/40 ${isLoading ? 'animate-spin text-brand-cyan' : ''}`} />
+          </button>
         </h2>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full xl:w-auto">
           {searchHistory.length > 0 && (
@@ -485,6 +601,48 @@ const MediaCard = ({
               <option value="HIGH">High (&gt; 0.8)</option>
               <option value="MEDIUM">Medium (0.5 - 0.8)</option>
               <option value="LOW">Low (&lt; 0.5)</option>
+            </select>
+          </div>
+
+          <div className="relative flex-1 sm:flex-none">
+            <Globe className="w-3 h-3 sm:w-4 sm:h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+            <select
+              className="w-full sm:w-auto pl-8 sm:pl-9 pr-6 sm:pr-8 py-1.5 sm:py-2 bg-surface-container border border-outline-variant rounded-xl text-[10px] sm:text-xs font-mono text-on-surface focus:outline-none focus:border-primary appearance-none cursor-pointer hover:bg-surface-container/80 transition-colors min-w-[100px]"
+              value={langFilter}
+              onChange={(e) => setLangFilter(e.target.value)}
+            >
+              <option value="ALL">Any Language</option>
+              <option value="English">English</option>
+              <option value="Portuguese">Português (PT-BR)</option>
+              <option value="Spanish">Español</option>
+              <option value="French">Français</option>
+              <option value="German">Deutsch</option>
+            </select>
+          </div>
+
+          <div className="relative flex-1 sm:flex-none">
+            <Mic className="w-3 h-3 sm:w-4 sm:h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+            <select
+              className="w-full sm:w-auto pl-8 sm:pl-9 pr-6 sm:pr-8 py-1.5 sm:py-2 bg-surface-container border border-outline-variant rounded-xl text-[10px] sm:text-xs font-mono text-on-surface focus:outline-none focus:border-primary appearance-none cursor-pointer hover:bg-surface-container/80 transition-colors min-w-[100px]"
+              value={dubbedFilter === 'ALL' ? 'ALL' : dubbedFilter.toString()}
+              onChange={(e) => setDubbedFilter(e.target.value === 'ALL' ? 'ALL' : e.target.value === 'true')}
+            >
+              <option value="ALL">Audio Any</option>
+              <option value="true">Dublado (DUB)</option>
+              <option value="false">Original Audio</option>
+            </select>
+          </div>
+
+          <div className="relative flex-1 sm:flex-none">
+            <SubtitlesIcon className="w-3 h-3 sm:w-4 sm:h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+            <select
+              className="w-full sm:w-auto pl-8 sm:pl-9 pr-6 sm:pr-8 py-1.5 sm:py-2 bg-surface-container border border-outline-variant rounded-xl text-[10px] sm:text-xs font-mono text-on-surface focus:outline-none focus:border-primary appearance-none cursor-pointer hover:bg-surface-container/80 transition-colors min-w-[100px]"
+              value={subtitledFilter === 'ALL' ? 'ALL' : subtitledFilter.toString()}
+              onChange={(e) => setSubtitledFilter(e.target.value === 'ALL' ? 'ALL' : e.target.value === 'true')}
+            >
+              <option value="ALL">CC / Subs Any</option>
+              <option value="true">Legendado (CC)</option>
+              <option value="false">No Subtitles</option>
             </select>
           </div>
 

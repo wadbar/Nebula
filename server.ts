@@ -108,6 +108,12 @@ interface OsIntSignal {
   relevance_score: number;
   metadata?: Record<string, unknown>;
   health?: "optimal" | "stable" | "broken";
+  language?: string;
+  audio_languages?: string[];
+  subtitle_languages?: string[];
+  is_dubbed?: boolean;
+  is_subtitled?: boolean;
+  quality?: string;
 }
 
 /**
@@ -221,14 +227,20 @@ Search for actual direct stream URLs, public podcasts, audio or video links, pub
 Return a list of up to 10 unique, high-integrity, real multimedia resources.
 Format your output STRICTLY as a JSON array of objects conforming to this TypeScript definition (do not wrap in markdown boxes, do not add any notes, return raw valid JSON array):
 interface OsIntSignal {
-  id: string; // unique lowercase slug, e.g. "ai-grounding-1"
-  name: string; // clear, formal, descriptive title of the stream/node
+  id: string; // unique lowercase slug
+  name: string; // clear, formal title
   url: string; // fully resolved real URL
   type: 'radio' | 'audio' | 'video' | 'video_stream' | 'tv' | 'live_cam' | 'media' | 'image' | 'document' | 'rom' | 'book' | 'audio_stream';
-  category: string; // genre, sub-genre, or tag
-  description: string; // a clear summary explaining what this resource contains (include bitrate, language, or quality details if resolved)
-  service: string; // MUST be set to 'GEMINI_AI_AGENT'
-  relevance_score: number; // score between 0.9 and 0.99
+  category: string; // genre or tag
+  description: string; // summary
+  service: string; // MUST be 'GEMINI_AI_AGENT'
+  relevance_score: number; // 0.9 to 0.99
+  language: string; // main language, e.g. "English", "Portuguese", "Spanish"
+  audio_languages: string[]; // detected audio tracks
+  subtitle_languages: string[]; // detected subtitle tracks
+  is_dubbed: boolean;
+  is_subtitled: boolean;
+  quality: string; // e.g. "1080p", "720p", "HQ", "VBR", "320kbps"
 }
 Ensure all URLs are valid external HTTP/HTTPS links and point to real content or media index portals.`;
 
@@ -265,7 +277,13 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
                       category: String(item.category || 'AI Cloud Node'),
                       description: `[AI Search Grounding] ${String(item.description || 'Verified live signal stream resolved from web index.')}`,
                       service: 'GEMINI_AI_AGENT',
-                      relevance_score: Number(item.relevance_score) || 0.96
+                      relevance_score: Number(item.relevance_score) || 0.96,
+                      language: item.language,
+                      audio_languages: item.audio_languages,
+                      subtitle_languages: item.subtitle_languages,
+                      is_dubbed: item.is_dubbed,
+                      is_subtitled: item.is_subtitled,
+                      quality: item.quality
                     });
                   }
                 });

@@ -19,6 +19,13 @@ export interface MediaResult {
   metadata?: any;
   lat?: number;
   lng?: number;
+  language?: string;
+  audio_languages?: string[];
+  subtitle_languages?: string[];
+  is_dubbed?: boolean;
+  is_subtitled?: boolean;
+  bitrate?: string;
+  codec?: string;
 }
 
 export interface NodeLocation {

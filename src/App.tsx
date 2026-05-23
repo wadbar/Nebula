@@ -57,16 +57,23 @@ const formatTime = (timeInSeconds: number) => {
   const [intelLoading, setIntelLoading] = useState(false);
 
   // --- Search & Results State ---
-  const [query, setQuery] = useState(() => localStorage.getItem('nebula_last_query') || "");
-  const [results, setResults] = useState<MediaResult[]>(() => {
-    const saved = localStorage.getItem('nebula_last_results');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<MediaResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
-    const saved = localStorage.getItem('nebula_search_history');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  // Sync state to localStorage
+  useEffect(() => {
+    if (query) localStorage.setItem('nebula_last_query', query);
+  }, [query]);
+
+  useEffect(() => {
+    localStorage.setItem('nebula_last_results', JSON.stringify(results));
+  }, [results]);
+
+  useEffect(() => {
+    localStorage.setItem('nebula_search_history', JSON.stringify(searchHistory));
+  }, [searchHistory]);
 
   // --- Media Playback State ---
   const [currentMedia, setCurrentMedia] = useState<MediaResult | null>(null);
@@ -131,6 +138,50 @@ const formatTime = (timeInSeconds: number) => {
   const mediaContainerRef = useRef<HTMLDivElement>(null);
   const searchController = useRef<AbortController | null>(null);
 
+  // --- Helper Functions ---
+  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
+    const newLog: LogEntry = {
+      id: Math.random().toString(36).substring(7),
+      message,
+      type,
+      timestamp: new Date().toISOString()
+    };
+    setLogs(prev => [...prev.slice(-100), newLog]);
+    if (type === 'error' || type === 'crit') hapticError();
+  }, []);
+
+  const openInVlc = useCallback((url: string) => {
+    if (!url) return;
+    addLog(`Initiating external VLC protocol for signal: ${url.substring(0, 24)}...`, "info");
+    window.location.href = `vlc://${url}`;
+  }, [addLog]);
+
+  // Retrieve state on mount
+  useEffect(() => {
+    const lastQuery = localStorage.getItem('nebula_last_query');
+    const lastResults = localStorage.getItem('nebula_last_results');
+    const history = localStorage.getItem('nebula_search_history');
+
+    if (lastQuery) setQuery(lastQuery);
+    if (lastResults) {
+      try {
+        setResults(JSON.parse(lastResults));
+      } catch (e) {
+        console.error("Failed to parse results from storage", e);
+      }
+    }
+    if (history) {
+      try {
+        setSearchHistory(JSON.parse(history));
+      } catch (e) {
+        console.error("Failed to parse history from storage", e);
+      }
+    }
+    
+    addLog("System states synchronized with local archival cluster.", "success");
+  }, [addLog]);
+
+
   useEffect(() => {
      if (currentMedia) {
         setStreamInfo({
@@ -141,22 +192,6 @@ const formatTime = (timeInSeconds: number) => {
         });
      }
   }, [currentMedia]);
-
-  useEffect(() => {
-    localStorage.setItem('nebula_last_query', query);
-  }, [query]);
-
-  useEffect(() => {
-    localStorage.setItem('nebula_last_results', JSON.stringify(results));
-  }, [results]);
-
-  useEffect(() => {
-    localStorage.setItem('nebula_history', JSON.stringify(history));
-  }, [history]);
-
-  useEffect(() => {
-    localStorage.setItem('nebula_playlists', JSON.stringify(playlists));
-  }, [playlists]);
 
   useEffect(() => {
      const handleOnline = () => setIsOnline(true);
@@ -188,16 +223,6 @@ const formatTime = (timeInSeconds: number) => {
   }, []);
 
   // --- Helper Functions ---
-  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
-    const newLog: LogEntry = {
-      id: Math.random().toString(36).substring(7),
-      message,
-      type,
-      timestamp: new Date().toISOString()
-    };
-    setLogs(prev => [...prev.slice(-100), newLog]);
-    if (type === 'error' || type === 'crit') hapticError();
-  }, []);
 
   // Use variables to suppress lint errors if they are intended to be used later
   useEffect(() => {
@@ -620,6 +645,7 @@ const formatTime = (timeInSeconds: number) => {
                 mediaContainerRef={mediaContainerRef}
                 getProxyUrl={getProxyUrl}
                 getViewerUrl={getViewerUrl}
+                openInVlc={openInVlc}
                 onShowInfo={() => {
                    if (currentMedia) {
                       setIntelDetailMedia(currentMedia);

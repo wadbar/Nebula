@@ -194,27 +194,37 @@ export default function GlobalSignalMap({
     );
   }
 
-  // Determine marker pin features based on medical node state
-  const getMarkerPinConfig = (health: string, isPlaying: boolean) => {
+  // Determine marker pin features based on latency and health
+  const getMarkerPinConfig = (health: string, isPlaying: boolean, latency?: number) => {
     if (isPlaying) {
       return {
-        background: '#00fa9a',
-        borderColor: '#001a0a',
+        background: '#10b981',
+        borderColor: '#00fa9a',
         glyphColor: '#000',
-        scale: 1.2
+        scale: 1.4
       };
     }
-    switch (health) {
-      case 'broken':
-        return { background: '#ef4444', borderColor: '#4a0e0e', glyphColor: '#fff', scale: 1.0 };
-      case 'degraded':
-        return { background: '#f59e0b', borderColor: '#4a320d', glyphColor: '#000', scale: 1.0 };
-      case 'unknown':
-        return { background: '#0ea5e9', borderColor: '#083b54', glyphColor: '#fff', scale: 1.0 };
-      case 'optimal':
-      default:
-        return { background: '#10b981', borderColor: '#042f1a', glyphColor: '#fff', scale: 1.0 };
+
+    // Default latency if not provided
+    const lat = latency || 32;
+
+    // Latency-based background color
+    let background = '#10b981'; // optimal (green)
+    if (lat > 150) {
+      background = '#ef4444'; // poor (red)
+    } else if (lat > 50) {
+      background = '#f59e0b'; // stable/degraded (orange)
     }
+
+    // Health-based overrides
+    if (health === 'broken') background = '#ef4444';
+
+    return { 
+      background, 
+      borderColor: 'rgba(0,0,0,0.3)', 
+      glyphColor: '#fff', 
+      scale: 1.0 
+    };
   };
 
   return (
@@ -351,7 +361,7 @@ export default function GlobalSignalMap({
             <LatencyHeatmapLayer results={enrichedResults} enabled={showHeatmap} />
             {enrichedResults.map((node, i) => {
               const isPlaying = currentMedia?.url === node.url;
-              const config = getMarkerPinConfig(node.health || 'optimal', isPlaying);
+              const config = getMarkerPinConfig(node.health || 'optimal', isPlaying, node.latency);
               return (
                 <AdvancedMarker
                   key={node.url + i}

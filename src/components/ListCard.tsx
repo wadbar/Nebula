@@ -18,7 +18,11 @@ import {
   ListPlus, 
   Download,
   Fingerprint,
-  Play
+  Play,
+  Globe,
+  Subtitles,
+  Mic,
+  Monitor as VlcIcon
 } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { MediaResult } from '../types';
@@ -194,6 +198,19 @@ const ListCard: React.FC<ListCardProps> = ({
                 {item.service.split('_')[0]}
               </span>
             )}
+            {item.quality && (
+              <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter text-white/30 bg-white/5 border border-white/10">
+                {item.quality}
+              </span>
+            )}
+            {item.language && (
+               <span className="flex items-center gap-1 text-[8px] text-brand-cyan/60 uppercase font-black bg-brand-cyan/5 px-1.5 py-0.5 rounded border border-brand-cyan/10">
+                 <Globe className="w-3 h-3" />
+                 {item.language}
+               </span>
+            )}
+            {item.is_dubbed && <span title="Dubbed"><Mic className="w-3 h-3 text-brand-green/60" /></span>}
+            {item.is_subtitled && <span title="Subtitled"><Subtitles className="w-3 h-3 text-brand-cyan/60" /></span>}
          </div>
           <h4 className="text-sm font-black text-white truncate group-hover:text-brand-green transition-colors flex items-center gap-2">
             {item.name}
@@ -246,6 +263,13 @@ const ListCard: React.FC<ListCardProps> = ({
           title="Add to Playlist"
         >
           <ListPlus className="w-3.5 h-3.5" />
+        </button>
+        <button 
+          onClick={(e) => { e.stopPropagation(); window.location.href = `vlc://${item.url}`; }}
+          className="p-2 rounded-xl bg-[var(--md-sys-color-surface-container)] text-white/20 hover:text-[#FF8800] hover:bg-[#FF8800]/10 transition-all"
+          title="Open in VLC"
+        >
+          <VlcIcon className="w-3.5 h-3.5" />
         </button>
         <button 
           onClick={() => toggleFavorite(item)}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, ExternalLink, Headphones, Radio, Play, Pause, SkipBack, SkipForward, RefreshCw, Fingerprint, Waves, Maximize } from 'lucide-react';
+import { ChevronDown, ExternalLink, Headphones, Radio, Play, Pause, SkipBack, SkipForward, RefreshCw, Fingerprint, Waves, Maximize, Monitor as VlcIcon } from 'lucide-react';
 import { MediaResult } from '../types';
 import AudioVisualizer from './AudioVisualizer';
 
@@ -42,6 +42,7 @@ interface MediaMatrixOverlayProps {
   getProxyUrl: (url: string) => string;
   getViewerUrl: (url: string) => string;
   onShowInfo: () => void;
+  openInVlc: (url: string) => void;
 }
 
 const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
@@ -82,6 +83,7 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
   getProxyUrl,
   getViewerUrl,
   onShowInfo,
+  openInVlc,
 }) => {
   if (!currentMedia) return null;
 
@@ -218,6 +220,13 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
                     </div>
 
                     <div className="flex items-center gap-3">
+                       <button 
+                          onClick={() => openInVlc(currentMedia.url)}
+                          className="p-2 text-white/40 hover:text-[#FF8800] transition-colors"
+                          title="Open current feed in VLC player"
+                       >
+                          <VlcIcon className="w-5 h-5" />
+                       </button>
                        <button onClick={handleToggleSubtitles} className={`p-2 rounded-xl transition-all ${isSubtitleEnabled ? 'text-brand-green bg-brand-green/10 border border-brand-green/30' : 'text-white/40 hover:text-white border border-transparent'}`}>
                           <Fingerprint className="w-5 h-5" />
                        </button>
