@@ -1,13 +1,71 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import { MediaResult } from '../types';
-import { Play, Shield, Activity, Laptop } from 'lucide-react';
+import { Play, Shield, Activity, Laptop, Flame } from 'lucide-react';
+
+// Heatmap Sub-component
+function LatencyHeatmapLayer({ results, enabled }: { results: EnrichedMediaResult[], enabled: boolean }) {
+  const map = useMap();
+  const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
+
+  useEffect(() => {
+    if (!map || !window.google?.maps?.visualization) return;
+
+    if (enabled) {
+      const data = results.map(node => {
+        const weight = (node.latency || 32) / 100; // Normalize weight
+        return {
+          location: new window.google.maps.LatLng(node.lat, node.lng),
+          weight: Math.min(weight, 1)
+        };
+      });
+
+      if (!heatmapRef.current) {
+        heatmapRef.current = new window.google.maps.visualization.HeatmapLayer({
+          data,
+          map,
+          radius: 40,
+          opacity: 0.6,
+          gradient: [
+            'rgba(0, 255, 255, 0)',
+            'rgba(0, 255, 255, 1)',
+            'rgba(0, 191, 255, 1)',
+            'rgba(0, 127, 255, 1)',
+            'rgba(0, 63, 255, 1)',
+            'rgba(0, 0, 255, 1)',
+            'rgba(0, 0, 223, 1)',
+            'rgba(0, 0, 191, 1)',
+            'rgba(0, 0, 159, 1)',
+            'rgba(0, 0, 127, 1)',
+            'rgba(63, 0, 91, 1)',
+            'rgba(127, 0, 63, 1)',
+            'rgba(191, 0, 31, 1)',
+            'rgba(255, 0, 0, 1)'
+          ]
+        });
+      } else {
+        heatmapRef.current.setData(data);
+        heatmapRef.current.setMap(map);
+      }
+    } else if (heatmapRef.current) {
+      heatmapRef.current.setMap(null);
+    }
+
+    return () => {
+      if (heatmapRef.current) {
+        heatmapRef.current.setMap(null);
+      }
+    };
+  }, [map, results, enabled]);
+
+  return null;
+}
 
 interface EnrichedMediaResult extends MediaResult {
   lat: number;
   lng: number;
   locationName: string;
-  health: "optimal" | "broken" | "unknown" | "degraded";
+  health: NonNullable<MediaResult['health']>;
 }
 
 function MapBoundsController({ results, trigger }: { results: EnrichedMediaResult[], trigger: number }) {
@@ -74,6 +132,7 @@ export default function GlobalSignalMap({
 }: GlobalSignalMapProps) {
   const [selectedNode, setSelectedNode] = useState<EnrichedMediaResult | null>(null);
   const [zoomTrigger, setZoomTrigger] = useState(0);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   // Map and enrich discovered signals with coordinates
   const enrichedResults = useMemo<EnrichedMediaResult[]>(() => {
@@ -179,9 +238,20 @@ export default function GlobalSignalMap({
              onClick={() => {
                 setZoomTrigger(prev => prev + 1);
              }}
-             className="w-full text-center text-[9px] font-black tracking-widest bg-white/5 hover:bg-white/10 text-white uppercase py-2 rounded-lg mb-4 transition-colors"
+             className="w-full text-center text-[9px] font-black tracking-widest bg-white/5 hover:bg-white/10 text-white uppercase py-2 rounded-lg mb-2 transition-colors"
           >
              ZOOM_TO_CLUSTER
+          </button>
+
+          <button 
+             onClick={() => {
+                setShowHeatmap(!showHeatmap);
+                addLog(`Latent Heatmap layer ${!showHeatmap ? 'activated' : 'deactivated'}.`, 'info');
+             }}
+             className={`w-full text-center text-[9px] font-black tracking-widest px-4 py-2 rounded-lg mb-4 transition-all flex items-center justify-center gap-2 border ${showHeatmap ? 'bg-orange-500/10 text-orange-500 border-orange-500/30' : 'bg-white/5 text-white/40 border-transparent hover:bg-white/10'}`}
+          >
+             <Flame className={`w-3.5 h-3.5 ${showHeatmap ? 'animate-pulse' : ''}`} />
+             LATENCY_HEAT_GRID
           </button>
 
           <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
@@ -267,7 +337,7 @@ export default function GlobalSignalMap({
 
       {/* Actual Map element */}
       <div className="flex-1 relative min-h-[350px]">
-        <APIProvider apiKey={API_KEY} version="weekly">
+        <APIProvider apiKey={API_KEY} version="weekly" libraries={['visualization']}>
           <Map
             defaultCenter={{ lat: 21.0, lng: 10.0 }}
             defaultZoom={2}
@@ -278,6 +348,7 @@ export default function GlobalSignalMap({
             disableDefaultUI={false}
           >
             <MapBoundsController results={enrichedResults} trigger={zoomTrigger} />
+            <LatencyHeatmapLayer results={enrichedResults} enabled={showHeatmap} />
             {enrichedResults.map((node, i) => {
               const isPlaying = currentMedia?.url === node.url;
               const config = getMarkerPinConfig(node.health || 'optimal', isPlaying);

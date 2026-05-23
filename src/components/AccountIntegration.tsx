@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Key, Save, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { Lock } from 'lucide-react';
 
 export const AccountIntegration = ({ onAddKey }: { onAddKey: (service: string, key: string) => void }) => {
   const [service, setService] = useState('');

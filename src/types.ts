@@ -1,37 +1,31 @@
 
+export type MediaResultType = 'radio' | 'audio' | 'video' | 'video_stream' | 'tv' | 'live_cam' | 'media' | 'image' | 'document' | 'rom' | 'book' | 'software' | 'audio_stream';
+
+export interface MediaResult {
+  id: string;
+  name: string;
+  url: string;
+  type: MediaResultType;
+  category: string;
+  description: string;
+  service: string;
+  relevance_score?: number;
+  quality?: string;
+  year?: string;
+  studio?: string;
+  tags?: string[];
+  latency?: number;
+  health?: 'optimal' | 'stable' | 'broken' | 'degraded' | 'unknown';
+  metadata?: any;
+  lat?: number;
+  lng?: number;
+}
+
 export interface NodeLocation {
   lat: number;
   lng: number;
   id: string;
   status: 'active' | 'latency';
-}
-
-export interface MediaResult {
-  id?: string;
-  name: string;
-  url: string;
-  type: "radio" | "audio" | "video" | "video_stream" | "tv" | "live_cam" | "media" | "image" | "document" | "rom" | "book" | "audio_stream";
-  service?: string;
-  category?: string;
-  description: string;
-  tags: string[];
-  health?: 'optimal' | 'degraded' | 'unknown' | 'broken';
-  relevance_score?: number;
-  rating?: number;
-  engagement?: "low" | "medium" | "high";
-  traffic?: 'minimal' | 'low' | 'medium' | 'high' | 'heavy' | 'extreme';
-  threat?: 'none' | 'minimal' | 'low' | 'guarded' | 'high' | 'critical';
-  chain_verified?: boolean;
-  registry_hash?: string;
-  last_block?: number;
-  lat?: number;
-  lng?: number;
-  studio?: string;
-  year?: string;
-  quality?: string;
-  engine?: string;
-  mirrors?: string[];
-  latency?: number;
 }
 
 export interface DownloadTask {
@@ -58,8 +52,8 @@ export interface ValidationResult {
 
 export interface LogEntry {
   id: string;
-  text: string;
-  type: 'info' | 'warn' | 'success' | 'security';
+  message: string;
+  type: 'info' | 'warn' | 'success' | 'security' | 'error' | 'crit';
   timestamp: string;
 }
 
@@ -67,4 +61,5 @@ export interface Playlist {
   id: string;
   name: string;
   items: MediaResult[];
+  createdAt?: number;
 }

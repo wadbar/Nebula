@@ -108,6 +108,7 @@ export const PlaylistViewer = ({
                             name,
                             url: trimmed,
                             type: 'video_stream',
+                            service: 'M3U Parser',
                             category: 'M3U StreamCode',
                             description: 'Direct stream link.',
                             relevance_score: 0.9,
