@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import { MediaResult } from '../types';
 import { Play, Shield, Activity, Laptop, Flame, X, Globe } from 'lucide-react';
@@ -122,7 +122,7 @@ export const getDeterministicCoordinates = (name: string, url: string): { lat: n
   return locations[hash % locations.length];
 };
 
-export default function GlobalSignalMap({
+const GlobalSignalMap = React.memo(function GlobalSignalMap({
   results,
   playMedia,
   currentMedia,
@@ -424,4 +424,6 @@ export default function GlobalSignalMap({
       </div>
     </div>
   );
-}
+});
+
+export default GlobalSignalMap;

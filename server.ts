@@ -213,7 +213,7 @@ async function startServer() {
       Logger.info("DISCOVERY_MODULE", "Iniciando varredura distribuída robusta", { query, activeType, activeService, boostValue });
 
       const osIntSignals: OsIntSignal[] = [];
-      const SCRAPER_TIMEOUT = 12000;
+      const SCRAPER_TIMEOUT = 25000;
 
       // Execução Paralela Protegida via Promise.allSettled
       const scraperTasks = [
@@ -224,7 +224,7 @@ async function startServer() {
               
               const aiPrompt = `Perform deep web research to discover real, functional, and high-yield media links, web radio stations, audio streaming archives, video files, live feeds, or digitized media nodes for the search query: "${query}".
 Search for actual direct stream URLs, public podcasts, audio or video links, public archive.org nodes, or live broadcast portals.
-Return a list of up to 10 unique, high-integrity, real multimedia resources.
+Return a list of up to 25 unique, high-integrity, real multimedia resources.
 Format your output STRICTLY as a JSON array of objects conforming to this TypeScript definition (do not wrap in markdown boxes, do not add any notes, return raw valid JSON array):
 interface OsIntSignal {
   id: string; // unique lowercase slug
@@ -296,14 +296,14 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
         })(),
         (async () => {
           if (["video", "all", "movie"].includes(activeType)) {
-            const response = await fetchWithRetry(`https://api.dailymotion.com/videos?search=${encodeURIComponent(query)}&fields=id,title,url,description&limit=15`, {}, 2, 500, SCRAPER_TIMEOUT);
+            const response = await fetchWithRetry(`https://api.dailymotion.com/videos?search=${encodeURIComponent(query)}&fields=id,title,url,description&limit=100`, {}, 2, 500, SCRAPER_TIMEOUT);
             const data = await response.json() as { list?: Array<{ id: string; title: string; url: string; description?: string }> };
             data.list?.forEach((v) => osIntSignals.push({ id: `dm-${v.id}`, name: v.title, url: v.url, type: 'video', category: 'Video Feed', description: `[Dailymotion] ${v.description || ''}`, service: 'DAILYMOTION', relevance_score: 0.8 }));
           }
         })(),
         (async () => {
            if (["video", "all"].includes(activeType)) {
-             const response = await fetchWithRetry(`https://peertube.tv/api/v1/search/videos?search=${encodeURIComponent(query)}&count=10`, {}, 2, 500, SCRAPER_TIMEOUT);
+             const response = await fetchWithRetry(`https://peertube.tv/api/v1/search/videos?search=${encodeURIComponent(query)}&count=100`, {}, 2, 500, SCRAPER_TIMEOUT);
              const data = await response.json() as { data?: Array<{ uuid: string; name: string; url: string; description?: string }> };
              data.data?.forEach((v) => osIntSignals.push({ id: `pt-${v.uuid}`, name: v.name, url: v.url, type: 'video', category: 'Peer-to-Peer Video', description: `[PeerTube] ${v.description?.substring(0, 100) || ''}`, service: 'PEERTUBE', relevance_score: 0.82 }));
            }
@@ -312,7 +312,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
           if (["all", "video", "image"].includes(activeType)) {
             const response = await fetchWithRetry(`https://images-api.nasa.gov/search?q=${encodeURIComponent(query)}&media_type=video,image`, {}, 2, 500, SCRAPER_TIMEOUT);
             const data = await response.json() as { collection?: { items?: Array<{ data?: Array<{ nasa_id: string; title: string; description?: string }> }> } };
-            data.collection?.items?.slice(0, 10).forEach((item) => {
+            data.collection?.items?.slice(0, 100).forEach((item) => {
               const dataObj = item.data?.[0];
               if (dataObj) {
                 osIntSignals.push({ id: `nasa-${dataObj.nasa_id}`, name: dataObj.title, url: `https://images-api.nasa.gov/asset/${dataObj.nasa_id}`, type: 'document', category: 'Scientific Data', description: `[NASA] ${dataObj.description?.substring(0, 150)}...`, service: 'NASA_EXPLORER', relevance_score: 0.9 });
@@ -324,26 +324,26 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
           if (["book", "document", "all"].includes(activeType)) {
             const response = await fetchWithRetry(`https://gutendex.com/books/?search=${encodeURIComponent(query)}`, {}, 2, 500, SCRAPER_TIMEOUT);
             const data = await response.json() as { results?: Array<{ id: number; title: string; authors?: Array<{ name: string }> }> };
-            data.results?.slice(0, 10).forEach((b) => {
+            data.results?.slice(0, 100).forEach((b) => {
               osIntSignals.push({ id: `guten-${b.id}`, name: b.title, url: `https://www.gutenberg.org/ebooks/${b.id}`, type: 'book', category: 'Literature', description: `[Gutenberg] Author: ${b.authors?.map(a => a.name).join(', ')}`, service: 'PROJECT_GUTENBERG', relevance_score: 0.86 });
             });
           }
         })(),
         (async () => {
           if (["document", "software", "all", "rom"].includes(activeType)) {
-            let apiUrl = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=15`;
+            let apiUrl = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=50`;
             if (query.includes('github.com/')) {
                 const path = query.split('github.com/')[1].split('/');
                 if (path.length >= 2 && path[0] && path[1]) apiUrl = `https://api.github.com/repos/${path[0]}/${path[1]}`;
-                else if (path.length >= 1 && path[0]) apiUrl = `https://api.github.com/users/${path[0]}/repos?per_page=15&sort=updated`;
+                else if (path.length >= 1 && path[0]) apiUrl = `https://api.github.com/users/${path[0]}/repos?per_page=100&sort=updated`;
             } else if (query.startsWith('user:')) {
-                apiUrl = `https://api.github.com/users/${query.split('user:')[1].trim()}/repos?per_page=15&sort=updated`;
+                apiUrl = `https://api.github.com/users/${query.split('user:')[1].trim()}/repos?per_page=100&sort=updated`;
             }
 
             const response = await fetchWithRetry(apiUrl, { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'System-OSINT-Scraper' } }, 2, 500, SCRAPER_TIMEOUT);
             const data = await response.json() as any;
             const items = Array.isArray(data) ? data : (data.items || [data]);
-            items.slice(0, 15).forEach((repo: any) => {
+            items.slice(0, 100).forEach((repo: any) => {
               if (repo && typeof repo.name === 'string') {
                 osIntSignals.push({ id: `gh-${repo.id}`, name: repo.full_name || repo.name, url: repo.html_url, type: 'software', category: repo.language || 'Code Repository', description: `[GitHub] ★ ${repo.stargazers_count} | ${repo.description || 'No description'}`, service: 'GITHUB', relevance_score: 0.95, metadata: { clone_url: repo.clone_url, default_branch: repo.default_branch } });
               }
@@ -352,7 +352,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
         })(),
         (async () => {
            if (["audio", "music", "all"].includes(activeType)) {
-             const response = await fetchWithRetry(`https://api.jamendo.com/v3.0/tracks/?client_id=56d30c95&format=jsonpretty&limit=10&search=${encodeURIComponent(query)}`, {}, 2, 500, SCRAPER_TIMEOUT);
+             const response = await fetchWithRetry(`https://api.jamendo.com/v3.0/tracks/?client_id=56d30c95&format=jsonpretty&limit=100&search=${encodeURIComponent(query)}`, {}, 2, 500, SCRAPER_TIMEOUT);
              const data = await response.json() as { results?: Array<{ id: string; name: string; audio: string; tags?: string[]; artist_name: string; album_name: string; duration: number; image: string }> };
              data.results?.forEach((track) => {
                osIntSignals.push({ id: `jam-${track.id}`, name: track.name, url: track.audio, type: 'audio', category: track.tags?.[0] || 'Music', description: `[Jamendo] Artist: ${track.artist_name} | Album: ${track.album_name}`, service: 'JAMENDO', relevance_score: 0.89, metadata: { duration: track.duration, image: track.image } });
@@ -363,7 +363,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
           if (["video", "tv", "all"].includes(activeType)) {
             const response = await fetchWithRetry(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`, {}, 2, 500, SCRAPER_TIMEOUT);
             const data = await response.json() as Array<{ show: { id: number; name: string; url: string; genres?: string[]; summary?: string } }>;
-            data.slice(0, 10).forEach((item) => {
+            data.slice(0, 100).forEach((item) => {
               const s = item.show;
               osIntSignals.push({ id: `tvm-${s.id}`, name: s.name, url: s.url, type: 'tv', category: s.genres?.[0] || 'TV Show', description: `[TVMaze] ${s.summary?.replace(/<[^>]*>?/gm, '').substring(0, 150)}...`, service: 'TV_MAZE_INTEL', relevance_score: 0.8 });
             });
@@ -371,7 +371,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
         })(),
         (async () => {
           if (["document", "all"].includes(activeType)) {
-            const response = await fetchWithRetry(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`, {}, 2, 500, SCRAPER_TIMEOUT);
+            const response = await fetchWithRetry(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=100`, {}, 2, 500, SCRAPER_TIMEOUT);
             const wikiData = await response.json() as { query?: { search?: Array<{ pageid: number; title: string; snippet: string }> } };
             wikiData.query?.search?.forEach((doc) => {
               osIntSignals.push({ id: `wiki-${doc.pageid}`, name: doc.title, url: `https://en.wikipedia.org/wiki/${encodeURIComponent(doc.title.replace(/ /g, '_'))}`, type: 'document', category: 'Encyclopedia', description: `[Wikipedia] ${doc.snippet.replace(/<[^>]*>?/gm, '')}`, service: 'WIKIPEDIA_INDEX', relevance_score: 0.82 });
@@ -380,7 +380,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
         })(),
         (async () => {
           if (["book", "all"].includes(activeType)) {
-            const response = await fetchWithRetry(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8`, {}, 2, 500, SCRAPER_TIMEOUT);
+            const response = await fetchWithRetry(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=100`, {}, 2, 500, SCRAPER_TIMEOUT);
             const bookData = await response.json() as { docs?: Array<{ key: string; title: string; author_name?: string[]; number_of_pages_median?: number }> };
             bookData.docs?.forEach((doc) => {
               if (doc.key) {
@@ -391,7 +391,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
         })(),
         (async () => {
           if (["audio", "music", "podcast", "video", "all"].includes(activeType)) {
-             const response = await fetchWithRetry(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&limit=15`, {}, 2, 500, SCRAPER_TIMEOUT);
+             const response = await fetchWithRetry(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&limit=100`, {}, 2, 500, SCRAPER_TIMEOUT);
              const data = await response.json() as { results?: Array<{ trackId?: number; trackName?: string; collectionName?: string; previewUrl?: string; kind?: string; primaryGenreName?: string; artistName?: string }> };
              data.results?.forEach((item) => {
                 if (item.previewUrl) {
@@ -401,9 +401,9 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
           }
         })(),
         (async () => {
-          if (["video", "all", "music"].includes(activeType)) {
+           if (["video", "all", "music"].includes(activeType)) {
              const r = await yts(query);
-             const videos = r.videos.slice(0, 15);
+             const videos = r.videos.slice(0, 100);
              videos.forEach((v: any) => {
                  osIntSignals.push({ id: `yt-${v.videoId}`, name: v.title, url: v.url, type: 'video', category: 'YouTube Formatted', description: `[YouTube] Author: ${v.author.name} | Views: ${v.views} | Duration: ${v.timestamp}`, service: 'YOUTUBE_SEARCH', relevance_score: 0.95 });
              });
@@ -412,7 +412,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
         (async () => {
           if (["audio", "music", "all"].includes(activeType)) {
             try {
-              const response = await fetchWithRetry(`https://de1.api.radio-browser.info/json/stations/byname/${encodeURIComponent(query)}?limit=15`, {}, 2, 500, SCRAPER_TIMEOUT);
+              const response = await fetchWithRetry(`https://de1.api.radio-browser.info/json/stations/byname/${encodeURIComponent(query)}?limit=100`, {}, 2, 500, SCRAPER_TIMEOUT);
               const data = await response.json() as Array<{ stationuuid: string; name: string; url_resolved?: string; url: string; tags?: string; codec?: string; bitrate?: number; country?: string }>;
               if (Array.isArray(data)) {
                 data.forEach((s) => {
@@ -436,7 +436,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
         (async () => {
           if (["all", "video", "audio", "book"].includes(activeType)) {
             try {
-              const response = await fetchWithRetry(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&fl[]=identifier,title,mediatype,description&rows=15&output=json`, {}, 2, 500, SCRAPER_TIMEOUT);
+              const response = await fetchWithRetry(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&fl[]=identifier,title,mediatype,description&rows=100&output=json`, {}, 2, 500, SCRAPER_TIMEOUT);
               const data = await response.json() as { response?: { docs?: Array<{ identifier: string; title: string; mediatype: string; description?: string }> } };
               data.response?.docs?.forEach((doc) => {
                 if (doc.identifier) {
@@ -474,38 +474,47 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
           }
       });
 
-      // Isolamento e Validação de Sinais de Operação Nativa
+      // Isolamento e Validação de Sinais de Operação Nativa (Sort and Scale for High Potency)
+      osIntSignals.sort((a, b) => (Number(b.relevance_score) || 0) - (Number(a.relevance_score) || 0));
       const uniqueSignals = Array.from(new Map(osIntSignals.map(item => [item.url, item])).values());
-      const resultsToValidate = uniqueSignals.slice(0, 30);
+      const resultsToValidate = uniqueSignals.slice(0, 1000);
       
-      const validatedSignals = await Promise.all(
-        resultsToValidate.map(async (signal) => {
-          try {
-            const safeUrl = String(signal.url);
-            if (safeUrl.includes("youtube.com") || safeUrl.includes("youtu.be") || safeUrl.includes("archive.org") || safeUrl.includes("radio-browser") || signal.type === 'radio') {
+      const chunkedValidation = async (signals: typeof osIntSignals, concurrency: number) => {
+        const results: any[] = [];
+        for (let i = 0; i < signals.length; i += concurrency) {
+          const chunk = signals.slice(i, i + concurrency);
+          const chunkResults = await Promise.all(chunk.map(async (signal) => {
+            try {
+              const safeUrl = String(signal.url);
+              if (safeUrl.includes("youtube.com") || safeUrl.includes("youtu.be") || safeUrl.includes("archive.org") || safeUrl.includes("radio-browser") || signal.type === 'radio') {
+                  return { ...signal, health: 'optimal' as const };
+              }
+
+              const response = await fetchWithRetry(safeUrl, { method: 'GET', headers: { 'Range': 'bytes=0-1' } }, 0, 100, 1500).catch(() => null);
+              if (response && (response.ok || response.status === 206)) {
                 return { ...signal, health: 'optimal' as const };
-            }
+              }
 
-            const response = await fetchWithRetry(safeUrl, { method: 'GET', headers: { 'Range': 'bytes=0-1' } }, 0, 100, 3000).catch(() => null);
-            if (response && (response.ok || response.status === 206)) {
-              return { ...signal, health: 'optimal' as const };
-            }
+              const headRes = await fetchWithRetry(safeUrl, { method: 'HEAD' }, 0, 100, 1000).catch(() => null);
+              if (headRes && headRes.ok) {
+                return { ...signal, health: 'optimal' as const };
+              }
 
-            const headRes = await fetchWithRetry(safeUrl, { method: 'HEAD' }, 0, 100, 2000).catch(() => null);
-            if (headRes && headRes.ok) {
-              return { ...signal, health: 'optimal' as const };
-            }
+              if (safeUrl.startsWith('http')) {
+                 return { ...signal, health: 'stable' as const };
+              }
 
-            if (safeUrl.startsWith('http')) {
-               return { ...signal, health: 'stable' as const };
+              return { ...signal, health: 'broken' as const };
+            } catch (e) {
+              return { ...signal, health: 'stable' as const };
             }
+          }));
+          results.push(...chunkResults);
+        }
+        return results;
+      };
 
-            return { ...signal, health: 'broken' as const };
-          } catch (e) {
-            return { ...signal, health: 'stable' as const };
-          }
-        })
-      );
+      const validatedSignals = await chunkedValidation(resultsToValidate, 100);
 
       const resolvedSignals = validatedSignals
         .filter(s => s.health !== 'broken')

@@ -1,48 +1,77 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Activity, Cpu, HardDrive } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export const SystemResources = () => {
+export const SystemResources = React.memo(() => {
   const [data, setData] = useState<{ time: string; cpu: number; memory: number }[]>([]);
+  const [isHistoricalMode, setIsHistoricalMode] = useState(false);
 
   useEffect(() => {
-    // Initial data
-    const initialData = Array.from({ length: 20 }).map((_, i) => ({
-      time: new Date(Date.now() - (19 - i) * 2000).toLocaleTimeString([], { hour12: false, minute: '2-digit', second: '2-digit' }),
-      cpu: Math.floor(Math.random() * 40) + 10,
-      memory: Math.floor(Math.random() * 20) + 40,
-    }));
-    setData(initialData);
+    let interval: NodeJS.Timeout;
 
-    const interval = setInterval(() => {
-      setData((prev) => {
-        const newData = [...prev.slice(1)];
-        const lastValue = prev[prev.length - 1];
-        
-        let nextCpu = lastValue.cpu + (Math.random() * 20 - 10);
-        nextCpu = Math.max(5, Math.min(95, nextCpu));
-        
-        let nextMemory = lastValue.memory + (Math.random() * 10 - 5);
-        nextMemory = Math.max(20, Math.min(85, nextMemory));
+    if (isHistoricalMode) {
+      // Historical data: 60 data points, 1 per minute for the last hour
+      const historicalData = Array.from({ length: 60 }).map((_, i) => ({
+        time: new Date(Date.now() - (59 - i) * 60000).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        cpu: Math.floor(Math.random() * 60) + 20, // slightly higher spread for historical
+        memory: Math.floor(Math.random() * 40) + 40,
+      }));
+      setData(historicalData);
+    } else {
+      // Initial live data: 20 data points, 1 every 2 seconds
+      const initialData = Array.from({ length: 20 }).map((_, i) => ({
+        time: new Date(Date.now() - (19 - i) * 2000).toLocaleTimeString([], { hour12: false, minute: '2-digit', second: '2-digit' }),
+        cpu: Math.floor(Math.random() * 40) + 10,
+        memory: Math.floor(Math.random() * 20) + 40,
+      }));
+      setData(initialData);
 
-        newData.push({
-          time: new Date().toLocaleTimeString([], { hour12: false, minute: '2-digit', second: '2-digit' }),
-          cpu: Math.floor(nextCpu),
-          memory: Math.floor(nextMemory)
+      interval = setInterval(() => {
+        setData((prev) => {
+          const newData = [...prev.slice(1)];
+          const lastValue = prev[prev.length - 1] || { cpu: 20, memory: 40 };
+          
+          let nextCpu = lastValue.cpu + (Math.random() * 20 - 10);
+          nextCpu = Math.max(5, Math.min(95, nextCpu));
+          
+          let nextMemory = lastValue.memory + (Math.random() * 10 - 5);
+          nextMemory = Math.max(20, Math.min(85, nextMemory));
+
+          newData.push({
+            time: new Date().toLocaleTimeString([], { hour12: false, minute: '2-digit', second: '2-digit' }),
+            cpu: Math.floor(nextCpu),
+            memory: Math.floor(nextMemory)
+          });
+          return newData;
         });
-        return newData;
-      });
-    }, 2000);
+      }, 2000);
+    }
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isHistoricalMode]);
 
   return (
     <div className="p-4 sm:p-8 space-y-6 sm:space-y-8 h-full overflow-y-auto relative custom-scrollbar pb-32">
-       <h2 className="text-xl font-black text-on-surface flex items-center gap-2">
-          <Activity className="text-primary w-5 h-5" /> SYSTEM DASHBOARD
-       </h2>
+       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+         <h2 className="text-xl font-black text-on-surface flex items-center gap-2">
+            <Activity className="text-primary w-5 h-5" /> SYSTEM DASHBOARD
+         </h2>
+         <label className="flex items-center gap-3 cursor-pointer bg-surface-container-high px-4 py-2 rounded-full border border-outline-variant hover:bg-surface-container-highest transition-colors">
+            <span className="text-xs font-bold text-on-surface uppercase tracking-wider">Historical Mode (60m)</span>
+            <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+              <input 
+                type="checkbox" 
+                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-surface-container border-2 border-outline-variant appearance-none cursor-pointer checked:bg-primary checked:border-primary checked:translate-x-5 transition-all duration-300"
+                checked={isHistoricalMode}
+                onChange={(e) => setIsHistoricalMode(e.target.checked)}
+              />
+              <label className={`toggle-label block overflow-hidden h-5 rounded-full bg-outline-variant cursor-pointer ${isHistoricalMode ? '!bg-primary/50' : ''}`}></label>
+            </div>
+         </label>
+       </div>
 
        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
          <motion.div 
@@ -56,9 +85,9 @@ export const SystemResources = () => {
            <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--md-sys-color-outline-variant)" opacity={0.3} vertical={false} />
-                  <XAxis dataKey="time" stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface-variant)' }} axisLine={false} tickLine={false} />
-                  <YAxis stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface-variant)' }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--md-sys-color-on-surface-variant)" opacity={0.2} vertical={false} />
+                  <XAxis dataKey="time" stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface)' }} axisLine={false} tickLine={false} />
+                  <YAxis stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface)' }} axisLine={false} tickLine={false} domain={[0, 100]} />
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--md-sys-color-surface-container-high)', borderColor: 'var(--md-sys-color-outline-variant)', borderRadius: '12px', fontSize: '12px' }}
                     itemStyle={{ color: 'var(--color-brand-cyan)', fontWeight: 'bold' }}
@@ -81,9 +110,9 @@ export const SystemResources = () => {
            <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--md-sys-color-outline-variant)" opacity={0.3} vertical={false} />
-                  <XAxis dataKey="time" stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface-variant)' }} axisLine={false} tickLine={false} />
-                  <YAxis stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface-variant)' }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--md-sys-color-on-surface-variant)" opacity={0.2} vertical={false} />
+                  <XAxis dataKey="time" stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface)' }} axisLine={false} tickLine={false} />
+                  <YAxis stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface)' }} axisLine={false} tickLine={false} domain={[0, 100]} />
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--md-sys-color-surface-container-high)', borderColor: 'var(--md-sys-color-outline-variant)', borderRadius: '12px', fontSize: '12px' }}
                     itemStyle={{ color: 'var(--color-brand-green)', fontWeight: 'bold' }}
@@ -96,4 +125,4 @@ export const SystemResources = () => {
        </div>
     </div>
   );
-};
+});

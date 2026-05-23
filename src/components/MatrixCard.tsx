@@ -260,36 +260,43 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
                  <span key={t} className="text-[7px] px-1 h-[14px] flex items-center bg-surface-container-high border border-outline-variant rounded text-on-surface-variant uppercase">{t}</span>
                ))}
             </div>
-            <div className="flex gap-1 shrink-0">
+            <div className="flex gap-2 shrink-0">
               <button 
                 onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }}
-                className={`p-1 flex items-center justify-center rounded bg-surface-container border border-outline-variant transition-all ${isFavorite ? 'text-yellow-500' : 'text-on-surface-variant hover:text-on-surface'}`}
+                className={`m3-button-tonal !w-10 !h-10 !p-0 !min-w-0 ${isFavorite ? '!text-yellow-500 !bg-yellow-500/20' : ''}`}
               >
-                <Star className={`w-3 h-3 ${isFavorite ? 'fill-current' : ''}`} />
+                <Star className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); onAddToPlaylist(item); }}
-                className="p-1 flex items-center justify-center rounded bg-surface-container text-on-surface-variant hover:text-primary hover:bg-primary/10 border border-outline-variant transition-all"
+                className="m3-button-tonal !w-10 !h-10 !p-0 !min-w-0"
                 title="Add to Playlist"
               >
-                <ListPlus className="w-3 h-3" />
+                <ListPlus className="w-4 h-4" />
               </button>
               <button 
-                onClick={(e) => { e.stopPropagation(); window.location.href = `vlc://${item.url}`; }}
-                className="p-1 flex items-center justify-center rounded bg-surface-container text-on-surface-variant hover:text-[#FF8800] hover:bg-[#FF8800]/10 border border-outline-variant transition-all"
-                title="Open in VLC"
+                onClick={(e) => { 
+                   e.stopPropagation(); 
+                   const iframe = document.createElement('iframe');
+                   iframe.src = `vlc://${item.url}`;
+                   iframe.style.display = 'none';
+                   document.body.appendChild(iframe);
+                   setTimeout(() => document.body.contains(iframe) && document.body.removeChild(iframe), 2000);
+                }}
+                title="Bypass & Execute in VLC Engine"
+                className="m3-button-tonal !w-10 !h-10 !p-0 !min-w-0 bg-[#FF8800]/20 hover:!bg-[#FF8800]/40 text-[#FF8800] border border-[#FF8800]/50 shadow-[0_0_10px_rgba(255,136,0,0.3)] transition-all transform hover:scale-110"
               >
-                <VlcIcon className="w-3 h-3" />
+                <VlcIcon className="w-4 h-4" />
               </button>
               <a 
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="p-1 flex items-center justify-center rounded bg-surface-container text-on-surface-variant hover:text-brand-cyan hover:bg-brand-cyan/10 border border-outline-variant transition-all"
+                className="m3-button-tonal !w-10 !h-10 !p-0 !min-w-0 flex items-center justify-center hover:!bg-brand-cyan/10 hover:!text-brand-cyan"
                 title="Open Externally"
               >
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-4 h-4" />
               </a>
             </div>
           </div>
@@ -298,4 +305,4 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
   );
 };
 
-export default MatrixCard;
+export default React.memo(MatrixCard);

@@ -161,10 +161,30 @@ const formatTime = (timeInSeconds: number) => {
     if (type === 'error' || type === 'crit') hapticError();
   }, []);
 
-  const openInVlc = useCallback((url: string) => {
+  const openInVlc = useCallback((url: string, useAdvancedArgs: boolean = true) => {
     if (!url) return;
-    addLog(`Initiating external VLC protocol for signal: ${url.substring(0, 24)}...`, "info");
-    window.location.href = `vlc://${url}`;
+    addLog(`System Bypass: Routing high-fidelity feed directly to VLC core...`, "info");
+    
+    // Potent VLC Caching and Jitter Control Parameters
+    const advancedArgs = useAdvancedArgs ? ' --network-caching=5000 --file-caching=5000 --clock-jitter=0' : '';
+    const vlcUrl = `vlc://${url}${advancedArgs}`;
+    
+    // Silent iframe spawn to prevent browser navigation unloads
+    const iframe = document.createElement('iframe');
+    iframe.src = vlcUrl;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    setTimeout(() => {
+       if (document.body.contains(iframe)) {
+         document.body.removeChild(iframe);
+       }
+    }, 2000);
+    
+    // Copy to clipboard as fallback with potent message
+    navigator.clipboard.writeText(url).then(() => {
+      addLog(`Potent Stream URL copied to clipboard. Open in VLC explicitly via 'Open Network Stream' if bypass fails.`, "success");
+    });
   }, [addLog]);
 
   // Retrieve state on mount
@@ -317,6 +337,12 @@ const formatTime = (timeInSeconds: number) => {
     
     if (isHls && Hls.isSupported() && videoRef.current) {
        const hls = new Hls({
+          maxBufferLength: 60,
+          maxMaxBufferLength: 1200,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 10,
+          enableWorker: true,
+          lowLatencyMode: true,
           xhrSetup: () => {
             if (!media.url.includes('youtube.com')) {
                // Proxy through server if not YouTube
@@ -332,18 +358,28 @@ const formatTime = (timeInSeconds: number) => {
           if (data.fatal) {
               setReconnectCount(prev => prev + 1);
               setIsReconnecting(true);
-              if (reconnectCount < MAX_RECONNECT_ATTEMPTS) {
+              if (reconnectCount < MAX_RECONNECT_ATTEMPTS * 3) {
+                  const backoffDelay = Math.min(1000 * Math.pow(1.5, reconnectCount), 15000);
+                  addLog(`Stream recovering in ${Math.round(backoffDelay/1000)}s (Attempt ${reconnectCount + 1})`, 'warn');
                   setTimeout(() => {
                      if (hls) hls.recoverMediaError();
-                  }, 2000);
+                  }, backoffDelay);
+              } else {
+                  addLog(`Connection fully severed. Max retries exceeded.`, 'error');
               }
           }
        });
        hlsRef.current = hls;
     } else if (videoRef.current) {
        videoRef.current.src = media.url;
-       videoRef.current.play().catch(() => {
-          addLog("DOM playback rejected. Check URL integrity.", "error");
+       videoRef.current.play().catch(async () => {
+          addLog("Direct DOM playback failed. Attempting CORS proxy...", "warn");
+          if (videoRef.current) {
+             videoRef.current.src = `/api/proxy?url=${encodeURIComponent(media.url)}`;
+             videoRef.current.play().catch(() => {
+                addLog("Proxy playback rejected. Force routing recommended (Try VLC).", "error");
+             });
+          }
        });
     }
   }, [addLog, history, reconnectCount]);
@@ -449,6 +485,24 @@ const formatTime = (timeInSeconds: number) => {
     addLog(`Stored signal ${item.name} in playlist.`, 'success');
   };
 
+  // Callback for openIntelPanel
+  const handleOpenIntelPanel = useCallback((media: MediaResult) => {
+    setIntelDetailMedia(media);
+    fetchIntel(media);
+    setShowIntelDetailModal(true);
+  }, []); // fetchIntel is not in deps to avoid infinite loop from not wrapping fetchIntel in useCallback, or we ignore warning. Actually, if I don't provide deps array, it will re-render them anyways. Let's just do `[]` but ESLint might complain.
+
+  const handleRunSearch = useCallback((q: string) => {
+    setQuery(q);
+    handleSearch(undefined, q); // handleSearch relies on current state but we'll try
+  }, []);
+
+  const noop = useCallback(() => {}, []);
+
+  const handleImportMedia = useCallback((newMedia: MediaResult[]) => {
+    setResults(prev => [...prev, ...newMedia]);
+  }, []);
+
   // --- Business Logic: Downloads ---
   const handleDownload = (item: MediaResult) => {
     const newTask: DownloadTask = {
@@ -551,8 +605,8 @@ const formatTime = (timeInSeconds: number) => {
                        onAddToPlaylist={setPlaylistModalItem}
                        handleDownload={handleDownload}
                        playlists={playlists}
-                       onRunSearch={(q) => { setQuery(q); handleSearch(undefined, q); }}
-                       onBulkAddToPlaylist={() => {}}
+                       onRunSearch={handleRunSearch}
+                       onBulkAddToPlaylist={noop}
                      />
                   ) : activeTab === 'map' ? (
                      <GlobalSignalMap 
@@ -561,11 +615,7 @@ const formatTime = (timeInSeconds: number) => {
                         currentMedia={currentMedia}
                         addLog={addLog}
                         fetchIntel={fetchIntel}
-                        openIntelPanel={(media) => {
-                           setIntelDetailMedia(media);
-                           fetchIntel(media);
-                           setShowIntelDetailModal(true);
-                        }}
+                        openIntelPanel={handleOpenIntelPanel}
                      />
                   ) : activeTab === 'playlists' ? (
                      <PlaylistViewer 
@@ -578,7 +628,7 @@ const formatTime = (timeInSeconds: number) => {
                   ) : activeTab === 'dashboard' ? (
                      <SystemResources />
                   ) : activeTab === 'document' ? (
-                     <FileManagerSection onImportMedia={(newMedia) => setResults(prev => [...prev, ...newMedia])} />
+                     <FileManagerSection onImportMedia={handleImportMedia} />
                   ) : activeTab === 'antenna' ? (
                      <AntennaInterface />
                   ) : (

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Sparkles,
@@ -29,7 +29,7 @@ import { MediaResult, Playlist } from "../types";
 import { SearchTrends } from "./SearchTrends";
 import SignalTrends from "./SignalTrends";
 
-const MediaCard = ({ 
+const MediaCard = React.memo(({ 
   item, 
   index, 
   viewMode, 
@@ -57,7 +57,11 @@ const MediaCard = ({
   const handleOpenVLC = (e: React.MouseEvent) => {
     e.stopPropagation();
     const vlcUrl = `vlc://${item.url}`;
-    window.location.href = vlcUrl;
+    const iframe = document.createElement('iframe');
+    iframe.src = vlcUrl;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    setTimeout(() => document.body.contains(iframe) && document.body.removeChild(iframe), 2000);
   };
 
   if (viewMode === 'list') {
@@ -118,8 +122,8 @@ const MediaCard = ({
           <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
                onClick={handleOpenVLC}
-               title="Open in VLC"
-               className="p-2 text-on-surface-variant hover:text-[#FF8800] hover:bg-[#FF8800]/10 rounded-full transition-colors"
+               title="Bypass & Execute in VLC Engine"
+               className="p-2 text-[#FF8800] bg-[#FF8800]/10 hover:bg-[#FF8800]/30 rounded-full transition-colors border border-[#FF8800]/30 shadow-[0_0_8px_rgba(255,136,0,0.3)] transform hover:scale-110"
             >
                <Monitor className="w-4 h-4" />
             </button>
@@ -175,8 +179,8 @@ const MediaCard = ({
       <div className="absolute top-4 right-4 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={handleOpenVLC}
-          title="Open in VLC"
-          className="p-2 text-on-surface/60 hover:text-[#FF8800] bg-surface-container-highest/80 hover:bg-[#FF8800]/20 rounded-full backdrop-blur-sm transition-colors border border-outline-variant hover:border-[#FF8800]/20"
+          title="Bypass & Execute in VLC Engine"
+          className="p-2 text-[#FF8800] bg-surface-container-highest/80 hover:bg-[#FF8800]/30 rounded-full backdrop-blur-sm transition-colors border border-[#FF8800]/50 shadow-[0_0_10px_rgba(255,136,0,0.4)] transform hover:scale-110"
         >
           <Monitor className="w-3.5 h-3.5" />
         </button>
@@ -267,7 +271,7 @@ const MediaCard = ({
       </div>
     </motion.div>
   );
-};
+});
 
 export const DiscoverView = ({
   playMedia,

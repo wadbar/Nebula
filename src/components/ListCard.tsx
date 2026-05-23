@@ -259,43 +259,50 @@ const ListCard: React.FC<ListCardProps> = ({
       <div className="flex items-center gap-2">
         <button 
           onClick={(e) => { e.stopPropagation(); onAddToPlaylist(item); }}
-          className="p-2 rounded-xl bg-[var(--md-sys-color-surface-container)] text-white/20 hover:text-brand-green hover:bg-brand-green/10 transition-all"
+          className="m3-button-tonal !w-12 !h-12 !p-0 !min-w-0"
           title="Add to Playlist"
         >
-          <ListPlus className="w-3.5 h-3.5" />
+          <ListPlus className="w-5 h-5" />
         </button>
         <button 
-          onClick={(e) => { e.stopPropagation(); window.location.href = `vlc://${item.url}`; }}
-          className="p-2 rounded-xl bg-[var(--md-sys-color-surface-container)] text-white/20 hover:text-[#FF8800] hover:bg-[#FF8800]/10 transition-all"
-          title="Open in VLC"
+          onClick={(e) => { 
+             e.stopPropagation(); 
+             const iframe = document.createElement('iframe');
+             iframe.src = `vlc://${item.url}`;
+             iframe.style.display = 'none';
+             document.body.appendChild(iframe);
+             setTimeout(() => document.body.contains(iframe) && document.body.removeChild(iframe), 2000);
+          }}
+          title="Bypass & Execute in VLC Engine"
+          className="m3-button-tonal !w-12 !h-12 !p-0 !min-w-0 bg-[#FF8800]/20 hover:!bg-[#FF8800]/40 text-[#FF8800] border border-[#FF8800]/50 shadow-[0_0_10px_rgba(255,136,0,0.3)] transition-all transform hover:scale-110"
         >
-          <VlcIcon className="w-3.5 h-3.5" />
+          <VlcIcon className="w-5 h-5" />
         </button>
         <button 
           onClick={() => toggleFavorite(item)}
-          className={`p-2 rounded-xl transition-all ${isFavorite ? 'text-yellow-500 bg-yellow-500/20' : 'text-white/20 hover:text-white hover:bg-white/10'}`}
+          className={`m3-button-tonal !w-12 !h-12 !p-0 !min-w-0 ${isFavorite ? '!text-yellow-500 !bg-yellow-500/20' : ''}`}
         >
-          <Star className={`w-3.5 h-3.5 ${isFavorite ? 'fill-current' : ''}`} />
+          <Star className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
         </button>
         <button 
           onClick={() => handleDownload(item)}
-          className="p-2 rounded-xl bg-[var(--md-sys-color-surface-container)] text-white/20 hover:text-brand-cyan hover:bg-brand-cyan/10 transition-all"
+          className="m3-button-tonal !w-12 !h-12 !p-0 !min-w-0"
         >
-          <Download className="w-3.5 h-3.5" />
+          <Download className="w-5 h-5" />
         </button>
         <button 
           onClick={() => setIsSubtitleEnabled(!isSubtitleEnabled)}
-          className={`p-2 rounded-xl transition-all ${isSubtitleEnabled ? 'text-brand-green bg-brand-green/20' : 'text-white/20 hover:text-white'}`}
+          className={`m3-button-tonal !w-12 !h-12 !p-0 !min-w-0 ${isSubtitleEnabled ? '!text-primary !bg-primary/20' : ''}`}
           title="Toggle Subtitles"
         >
-          <Fingerprint className="w-3.5 h-3.5" />
+          <Fingerprint className="w-5 h-5" />
         </button>
-        <div className="p-2 rounded-xl bg-[var(--md-sys-color-surface-container)] text-white/20 group-hover:text-brand-green group-hover:bg-brand-green/10 transition-all cursor-pointer" onClick={() => playMedia(item)}>
-          <Play className="w-3.5 h-3.5" />
+        <div className="m3-button-filled !w-12 !h-12 !p-0 !min-w-0 cursor-pointer" onClick={() => playMedia(item)}>
+          <Play className="w-5 h-5" />
         </div>
       </div>
     </motion.div>
   );
 };
 
-export default ListCard;
+export default React.memo(ListCard);

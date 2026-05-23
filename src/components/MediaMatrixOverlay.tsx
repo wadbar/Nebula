@@ -42,7 +42,7 @@ interface MediaMatrixOverlayProps {
   getProxyUrl: (url: string) => string;
   getViewerUrl: (url: string) => string;
   onShowInfo: () => void;
-  openInVlc: (url: string) => void;
+  openInVlc: (url: string, useAdvancedArgs?: boolean) => void;
 }
 
 const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
@@ -85,6 +85,8 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
   onShowInfo,
   openInVlc,
 }) => {
+  const [vlcPotentMode, setVlcPotentMode] = React.useState(true);
+
   if (!currentMedia) return null;
 
   const formatTime = (time: number) => {
@@ -198,12 +200,12 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
                 </AnimatePresence>
 
                 <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/95 via-black/40 to-transparent flex flex-col gap-4 z-20 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0 backdrop-blur-[4px]">
-                  <div className="flex items-center gap-4">
-                    <button onClick={handleSkipBackward} className="text-white/40 hover:text-white transition-colors"><SkipBack className="w-5 h-5" /></button>
-                    <button onClick={handleTogglePlayback} className="w-10 h-10 flex items-center justify-center bg-white text-black rounded-full hover:bg-brand-green transition-all transform hover:scale-110 active:scale-95">
-                      {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+                  <div className="flex items-center justify-center gap-4">
+                    <button onClick={handleSkipBackward} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-on-surface/10 transition-colors"><SkipBack className="w-6 h-6" /></button>
+                    <button onClick={handleTogglePlayback} className="w-14 h-14 flex items-center justify-center bg-primary text-on-primary rounded-full hover:bg-primary/90 transition-all transform hover:scale-110 active:scale-95 shadow-lg">
+                      {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-1" />}
                     </button>
-                    <button onClick={handleSkip} className="text-white/40 hover:text-white transition-colors"><SkipForward className="w-5 h-5" /></button>
+                    <button onClick={handleSkip} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-on-surface/10 transition-colors"><SkipForward className="w-6 h-6" /></button>
                     
                     <div className="flex-1 flex flex-col gap-2 mx-4 relative">
                       <div className="absolute -top-12 left-0 right-0 h-10 pointer-events-none overflow-hidden rounded-lg">
@@ -224,15 +226,24 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                     <div className="flex items-center gap-3">
                        <button 
-                          onClick={() => openInVlc(currentMedia.url)}
-                          className="p-2 text-white/40 hover:text-[#FF8800] transition-colors"
-                          title="Open current feed in VLC player"
+                          onClick={() => setVlcPotentMode(!vlcPotentMode)}
+                          className={`px-3 py-2 text-[10px] font-bold uppercase rounded-xl border transition-all ${vlcPotentMode ? 'text-[#FF8800] border-[#FF8800]/50 bg-[#FF8800]/10' : 'text-white/40 border-white/10'}`}
+                          title="Toggle Potent Networking Params"
                        >
-                          <VlcIcon className="w-5 h-5" />
+                         {vlcPotentMode ? 'POTENT: ON' : 'POTENT: OFF'}
                        </button>
-                       <button onClick={handleToggleSubtitles} className={`p-2 rounded-xl transition-all ${isSubtitleEnabled ? 'text-brand-green bg-brand-green/10 border border-brand-green/30' : 'text-white/40 hover:text-white border border-transparent'}`}>
+                       <button 
+                          onClick={() => openInVlc(currentMedia.url, vlcPotentMode)}
+                          className="px-4 py-2 text-white/80 font-bold bg-gradient-to-r from-[#FF8800]/20 to-transparent hover:from-[#FF8800]/40 rounded-xl border border-[#FF8800]/40 hover:border-[#FF8800] hover:shadow-[0_0_15px_rgba(255,136,0,0.5)] transition-all flex items-center gap-2 relative overflow-hidden group shadow-[0_0_5px_rgba(255,136,0,0.2)]"
+                          title="Bypass DOM & Open Feed in VLC Core"
+                       >
+                          <div className="absolute inset-0 bg-[#FF8800]/10 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse"></div>
+                          <VlcIcon className="w-5 h-5 relative z-10 animate-bounce group-hover:animate-none" />
+                          <span className="text-xs font-black font-mono tracking-widest relative z-10 hidden sm:inline-block">VLC ENGINE</span>
+                       </button>
+                       <button onClick={handleToggleSubtitles} className={`p-2 rounded-xl transition-all ${isSubtitleEnabled ? 'text-brand-green bg-brand-green/10 border border-brand-green/30 shadow-[0_0_10px_rgba(0,255,136,0.2)]' : 'text-white/40 hover:text-white border border-transparent'}`}>
                           <Fingerprint className="w-5 h-5" />
                        </button>
                        <button onClick={handleFullscreen} className="p-2 text-white/40 hover:text-white transition-colors">

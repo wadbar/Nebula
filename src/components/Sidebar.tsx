@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { motion } from 'motion/react';
 import { 
   Settings, 
@@ -50,6 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpenTermin
           const isActive = activeTab === item.id;
           return (
           <button
+            key={item.id}
             onClick={() => setActiveTab(item.id)}
             className={`
               flex items-center gap-6 p-4 rounded-full transition-all relative group
@@ -93,4 +94,4 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpenTermin
   );
 };
 
-export default Sidebar;
+export default memo(Sidebar);
