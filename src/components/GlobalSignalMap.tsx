@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import { MediaResult } from '../types';
-import { Play, Shield, Activity, Laptop, Flame } from 'lucide-react';
+import { Play, Shield, Activity, Laptop, Flame, X, Globe } from 'lucide-react';
 
 // Heatmap Sub-component
 function LatencyHeatmapLayer({ results, enabled }: { results: EnrichedMediaResult[], enabled: boolean }) {
@@ -150,43 +150,43 @@ export default function GlobalSignalMap({
 
   if (!hasValidKey) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center h-[550px] bg-black/40 rounded-2xl border border-white/5 font-mono">
-        <div className="max-w-md w-full bg-[#0a0a0a] border border-red-500/20 rounded-2xl p-6 sm:p-8 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-red-500/30" />
-          <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
-            <Activity className="w-6 h-6 text-red-500 animate-pulse" />
+      <div className="flex flex-col items-center justify-center p-8 text-center h-[550px] bg-surface-container-high/40 rounded-[28px] border border-outline-variant font-mono">
+        <div className="max-w-md w-full bg-surface-container rounded-[28px] p-6 sm:p-10 relative overflow-hidden shadow-2xl">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-error/30" />
+          <div className="w-16 h-16 bg-error/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-error/20">
+            <Activity className="w-8 h-8 text-error animate-pulse" />
           </div>
           
-          <h2 className="text-white text-md font-bold tracking-wider mb-2 uppercase">Google Maps API Key Required</h2>
-          <p className="text-xs text-white/50 mb-6 leading-relaxed">
+          <h2 className="text-on-surface text-lg font-black tracking-widest mb-3 uppercase">Maps Platform Constraint</h2>
+          <p className="text-sm text-on-surface-variant mb-8 leading-relaxed font-sans">
             Realtime geo-spatial telemetry on global signal grids is disabled due to missing active platform key constraints.
           </p>
 
-          <div className="text-left space-y-4 mb-6 bg-white/[0.02] p-4 rounded-xl border border-white/5 text-xs">
+          <div className="text-left space-y-5 mb-8 bg-on-surface/[0.03] p-6 rounded-[24px] border border-outline-variant text-[11px] leading-relaxed">
             <div>
-              <span className="text-brand-green font-black">STEP 1:</span>{' '}
+              <span className="text-primary font-black uppercase tracking-tighter mr-2">Step 01</span>{' '}
               <a 
                 href="https://console.cloud.google.com/google/maps-apis/start?utm_campaign=gmp-code-assist-ais" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-brand-cyan hover:underline hover:text-brand-cyan/80 transition-colors"
+                className="text-secondary hover:underline hover:text-secondary/80 font-black transition-colors"
                 id="gmp-console-link"
               >
                 Acquire Google Maps API Key
               </a>
             </div>
             <div>
-              <span className="text-brand-green font-black">STEP 2:</span> Paste into AI Studio Secrets:
-              <ul className="list-disc list-inside mt-1.5 pl-2 space-y-1 text-white/60">
-                <li>Click the <Laptop className="w-3.5 h-3.5 inline mx-0.5" /> <b>Settings</b> gear icon in the top-right</li>
-                <li>Go to <b>Secrets</b> sub-menu</li>
-                <li>Add key named <code className="text-brand-cyan bg-white/5 px-1 rounded font-bold">GOOGLE_MAPS_PLATFORM_KEY</code></li>
-                <li>Confirm value and click save. The system compiles automatically</li>
+              <span className="text-primary font-black uppercase tracking-tighter mr-2">Step 02</span> Inject via AI Studio Secrets:
+              <ul className="list-disc list-inside mt-3 pl-2 space-y-2 text-on-surface-variant font-sans">
+                <li>Access <Laptop className="w-3.5 h-3.5 inline mx-0.5" /> <b>Settings</b> in top-right menu</li>
+                <li>Navigate to <b>Secrets</b> sub-module</li>
+                <li>Provision key named <code className="text-secondary bg-secondary/5 px-2 py-0.5 rounded font-black text-[10px]">GOOGLE_MAPS_PLATFORM_KEY</code></li>
+                <li>Commit values to trigger automatic hardware re-initialization</li>
               </ul>
             </div>
           </div>
           
-          <div className="text-[10px] text-white/30 italic">
+          <div className="text-[10px] text-on-surface-variant/40 italic font-sans">
             Applet automatically refreshes state following build-time secret injection.
           </div>
         </div>
@@ -198,8 +198,8 @@ export default function GlobalSignalMap({
   const getMarkerPinConfig = (health: string, isPlaying: boolean, latency?: number) => {
     if (isPlaying) {
       return {
-        background: '#10b981',
-        borderColor: '#00fa9a',
+        background: '#D1FF1A',
+        borderColor: '#99CC00',
         glyphColor: '#000',
         scale: 1.4
       };
@@ -209,15 +209,15 @@ export default function GlobalSignalMap({
     const lat = latency || 32;
 
     // Latency-based background color
-    let background = '#10b981'; // optimal (green)
+    let background = '#D1FF1A'; // optimal (lime)
     if (lat > 150) {
-      background = '#ef4444'; // poor (red)
+      background = '#FF5252'; // poor (error red)
     } else if (lat > 50) {
-      background = '#f59e0b'; // stable/degraded (orange)
+      background = '#FFB74D'; // stable/degraded (amber)
     }
 
     // Health-based overrides
-    if (health === 'broken') background = '#ef4444';
+    if (health === 'broken') background = '#FF5252';
 
     return { 
       background, 
@@ -228,43 +228,43 @@ export default function GlobalSignalMap({
   };
 
   return (
-    <div className="relative h-[600px] w-full rounded-2xl overflow-hidden border border-white/5 bg-black/20 flex flex-col lg:flex-row-reverse min-h-0">
+    <div className="relative h-[600px] w-full rounded-[28px] overflow-hidden border border-outline-variant bg-surface-container-high/20 flex flex-col lg:flex-row-reverse min-h-0">
       {/* Sidebar Control Widget inside Map View */}
-      <div className="w-full lg:w-80 shrink-0 bg-[#070707] border-t lg:border-t-0 lg:border-r border-white/5 p-4 flex flex-col justify-between overflow-y-auto font-mono text-xs text-white/80 select-none">
+      <div className="w-full lg:w-80 shrink-0 bg-surface-container p-6 flex flex-col justify-between overflow-y-auto custom-scrollbar select-none z-10 shadow-2xl">
         <div>
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
-            <span className="font-extrabold tracking-widest text-[10px] text-brand-green uppercase">SIGNAL NETWORK MAP</span>
-            <div className="flex items-center gap-1.5 text-[9px] text-white/40">
-              <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
-              ONLINE
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-outline-variant">
+            <span className="font-black tracking-[0.2em] text-[10px] text-primary uppercase">Signal Network</span>
+            <div className="flex items-center gap-1.5 text-[9px] text-primary font-black">
+              <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+              RADAR ACTIVE
             </div>
           </div>
 
-          <p className="text-[10px] text-white/40 mb-4 leading-relaxed">
-            Viewing {enrichedResults.length} index nodes parsed globally. Click markers to review orbital locations, latency statistics, and trigger instant high-fidelity audio/video relays.
+          <p className="text-[11px] text-on-surface-variant/80 mb-6 leading-relaxed italic border-l-2 border-primary/20 pl-4 font-sans">
+            Viewing {enrichedResults.length} index nodes parsed globally. Interact with vector markers to Review orbital locations and trigger relays.
           </p>
           
-          <button 
-             onClick={() => {
-                setZoomTrigger(prev => prev + 1);
-             }}
-             className="w-full text-center text-[9px] font-black tracking-widest bg-white/5 hover:bg-white/10 text-white uppercase py-2 rounded-lg mb-2 transition-colors"
-          >
-             ZOOM_TO_CLUSTER
-          </button>
+          <div className="flex flex-col gap-2 mb-6">
+            <button 
+               onClick={() => setZoomTrigger(prev => prev + 1)}
+               className="m3-button-tonal w-full py-3 text-[10px] rounded-2xl"
+            >
+               ZOOM_TO_CLUSTER
+            </button>
 
-          <button 
-             onClick={() => {
-                setShowHeatmap(!showHeatmap);
-                addLog(`Latent Heatmap layer ${!showHeatmap ? 'activated' : 'deactivated'}.`, 'info');
-             }}
-             className={`w-full text-center text-[9px] font-black tracking-widest px-4 py-2 rounded-lg mb-4 transition-all flex items-center justify-center gap-2 border ${showHeatmap ? 'bg-orange-500/10 text-orange-500 border-orange-500/30' : 'bg-white/5 text-white/40 border-transparent hover:bg-white/10'}`}
-          >
-             <Flame className={`w-3.5 h-3.5 ${showHeatmap ? 'animate-pulse' : ''}`} />
-             LATENCY_HEAT_GRID
-          </button>
+            <button 
+               onClick={() => {
+                  setShowHeatmap(!showHeatmap);
+                  addLog(`Latent Heatmap layer ${!showHeatmap ? 'activated' : 'deactivated'}.`, 'info');
+               }}
+               className={`m3-button w-full py-3 text-[10px] rounded-2xl flex items-center justify-center gap-2 border transition-all ${showHeatmap ? 'bg-secondary/20 text-secondary border-secondary/40 animate-pulse' : 'bg-surface-container-highest/50 text-on-surface-variant border-transparent hover:bg-surface-container-highest'}`}
+            >
+               <Flame className={`w-3.5 h-3.5 ${showHeatmap ? 'animate-pulse' : ''}`} />
+               LATENCY_HEAT_GRID
+            </button>
+          </div>
 
-          <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
             {enrichedResults.slice(0, 15).map((node, i) => {
               const isSelected = selectedNode?.url === node.url;
               const isPlaying = currentMedia?.url === node.url;
@@ -275,59 +275,64 @@ export default function GlobalSignalMap({
                     setSelectedNode(node);
                     addLog(`Grounded map query to node: ${node.name}`, "info");
                   }}
-                  className={`w-full text-left p-2.5 rounded-lg border transition-all flex flex-col gap-1 ${
+                  className={`w-full text-left p-4 rounded-[20px] border transition-all flex flex-col gap-2 ${
                     isPlaying 
-                      ? 'bg-brand-green/10 border-brand-green/30' 
+                      ? 'bg-primary/10 border-primary/40' 
                       : isSelected 
-                      ? 'bg-white/5 border-white/20' 
-                      : 'bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
+                      ? 'bg-surface-container-highest border-outline' 
+                      : 'bg-surface-container-high/40 border-outline-variant hover:border-outline hover:bg-surface-container-high'
                   }`}
                 >
                   <div className="flex justify-between items-start gap-2">
-                    <span className="font-bold truncate text-white block fill-current text-[10px] uppercase tracking-wide">{node.name}</span>
-                    <span className={`text-[8px] font-black rounded-sm px-1 ${
-                      node.health === 'broken' ? 'bg-red-500/10 text-red-400' :
-                      node.health === 'degraded' ? 'bg-amber-500/10 text-amber-400' :
-                      'bg-emerald-500/10 text-emerald-400'
+                    <span className="font-black truncate text-on-surface block text-[10px] uppercase tracking-wide">{node.name}</span>
+                    <span className={`text-[8px] font-black rounded-full px-2 py-0.5 border ${
+                      node.health === 'broken' ? 'bg-error/10 text-error border-error/20' :
+                      node.health === 'degraded' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                      'bg-primary/10 text-primary border-primary/20'
                     }`}>
                       {node.health.toUpperCase()}
                     </span>
                   </div>
-                  <div className="flex justify-between text-[9px] text-white/40">
-                    <span>{node.locationName}</span>
-                    <span className="text-brand-cyan">{node.latency ? `${node.latency}ms` : '32ms'}</span>
+                  <div className="flex justify-between text-[9px] font-mono font-black">
+                    <span className="text-on-surface-variant opacity-60 uppercase">{node.locationName}</span>
+                    <span className="text-secondary tracking-tighter">{node.latency ? `${node.latency}ms` : '32ms'}</span>
                   </div>
                 </button>
               );
             })}
             {enrichedResults.length === 0 && (
-              <div className="text-center py-8 text-white/25 italic uppercase text-[10px] tracking-wider">
-                No active signal nodes parsed. Execute search above to acquire vectors.
+              <div className="text-center py-12 text-on-surface-variant/30 italic uppercase text-[10px] tracking-[0.2em] p-6 border-2 border-dashed border-outline-variant rounded-[24px]">
+                No active signal nodes parsed.
               </div>
             )}
           </div>
         </div>
 
         {selectedNode && (
-          <div className="mt-4 p-3 bg-white/[0.02] rounded-xl border border-white/5 flex flex-col gap-2.5">
+          <div className="mt-6 p-4 bg-surface-container-highest rounded-[24px] border border-outline shadow-xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-between items-center">
-              <span className="text-[10px] font-black text-brand-cyan uppercase">Selected Node Details</span>
-              <button onClick={() => setSelectedNode(null)} className="text-white/40 hover:text-white pb-0.5">×</button>
+              <span className="text-[10px] font-black text-secondary uppercase tracking-[0.1em]">Node Analytics</span>
+              <button title="Close" onClick={() => setSelectedNode(null)} className="text-on-surface-variant hover:text-on-surface p-1 hover:bg-on-surface/5 rounded-full">
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="font-bold text-white uppercase text-[10px] leading-tight">{selectedNode.name}</span>
-              <span className="text-[9px] text-white/40 leading-relaxed truncate">{selectedNode.url}</span>
-              <span className="text-[9px] text-brand-green/80 mt-1">🌍 Position: {selectedNode.locationName}</span>
+            <div className="flex flex-col gap-1.5">
+              <span className="font-black text-on-surface uppercase text-[11px] leading-tight truncate">{selectedNode.name}</span>
+              <span className="text-[9px] text-on-surface-variant font-mono truncate opacity-60">{selectedNode.url}</span>
+              <div className="flex items-center gap-2 mt-2">
+                <Globe className="w-3.5 h-3.5 text-secondary" />
+                <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-tighter">{selectedNode.locationName}</span>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-1">
+            <div className="grid grid-cols-2 gap-3 mt-2">
               <button
                 onClick={() => {
                   playMedia(selectedNode);
                   addLog(`Mapping server relay to node: ${selectedNode.name}`, "success");
                 }}
-                className="flex items-center justify-center gap-1 bg-brand-green text-black hover:bg-brand-green/80 font-black py-1.5 rounded-lg text-[9px] uppercase tracking-wider transition-colors"
+                className="m3-button-filled !py-3 rounded-xl flex items-center justify-center gap-2 text-[10px] tracking-widest"
               >
-                <Play className="w-3 h-3 fill-current" />
+                <Play className="w-3.5 h-3.5 fill-current" />
                 RELAY
               </button>
               <button
@@ -335,10 +340,10 @@ export default function GlobalSignalMap({
                   fetchIntel(selectedNode);
                   openIntelPanel(selectedNode);
                 }}
-                className="flex items-center justify-center gap-1 bg-white/5 text-white border border-white/10 hover:bg-white/10 font-bold py-1.5 rounded-lg text-[9px] uppercase tracking-wider transition-colors"
+                className="m3-button-tonal !py-3 rounded-xl flex items-center justify-center gap-2 text-[10px] tracking-widest"
               >
-                <Shield className="w-3 h-3" />
-                ANALYZE
+                <Shield className="w-3.5 h-3.5" />
+                INTEL
               </button>
             </div>
           </div>
@@ -387,26 +392,26 @@ export default function GlobalSignalMap({
                 position={{ lat: Number(selectedNode.lat), lng: Number(selectedNode.lng) }}
                 onCloseClick={() => setSelectedNode(null)}
               >
-                <div className="p-1 text-black font-sans max-w-xs text-xs">
-                  <h4 className="font-bold text-gray-900 border-b pb-1 mb-1 truncate">{selectedNode.name}</h4>
-                  <div className="space-y-1 text-gray-500 mb-2">
-                    <p className="truncate"><span className="text-gray-400 font-bold">URL:</span> {selectedNode.url}</p>
-                    <p><span className="text-gray-400 font-bold">Region:</span> {selectedNode.locationName}</p>
-                    <p><span className="text-gray-400 font-bold">Health:</span> <span className="uppercase font-bold text-emerald-600">{selectedNode.health || 'optimal'}</span></p>
+                <div className="p-3 bg-surface text-on-surface max-w-xs font-sans rounded-xl border border-outline-variant shadow-2xl">
+                  <h4 className="font-black text-on-surface border-b border-outline-variant pb-2 mb-2 truncate uppercase tracking-tighter text-xs">{selectedNode.name}</h4>
+                  <div className="space-y-1.5 text-[10px] text-on-surface-variant mb-4 font-mono">
+                    <p className="truncate"><span className="opacity-40 font-black">DIR:</span> {selectedNode.url}</p>
+                    <p><span className="opacity-40 font-black">REG:</span> {selectedNode.locationName}</p>
+                    <p><span className="opacity-40 font-black">HLS:</span> <span className="uppercase font-black text-primary">{selectedNode.health || 'optimal'}</span></p>
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => playMedia(selectedNode)}
-                      className="bg-emerald-600 text-white rounded px-2 py-1 font-bold text-[10px] hover:bg-emerald-700 transition-colors"
+                      className="bg-primary text-on-primary rounded-lg px-3 py-1.5 font-black text-[9px] uppercase tracking-widest hover:brightness-110 transition-all flex-1"
                     >
-                      Play Node
+                      Init Relay
                     </button>
                     <button
                       onClick={() => {
                         fetchIntel(selectedNode);
                         openIntelPanel(selectedNode);
                       }}
-                      className="bg-gray-800 text-white rounded px-2 py-1 font-bold text-[10px] hover:bg-gray-900 transition-colors"
+                      className="bg-surface-container-highest text-on-surface-variant rounded-lg px-3 py-1.5 font-black text-[9px] uppercase tracking-widest hover:bg-on-surface/5 transition-all flex-1 border border-outline-variant"
                     >
                       AI Intel
                     </button>

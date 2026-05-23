@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Info,
   ChevronUp,
+  ChevronDown,
   Trash2,
   X
 } from 'lucide-react';

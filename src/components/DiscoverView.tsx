@@ -56,12 +56,11 @@ const MediaCard = ({
 
   const handleOpenVLC = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Use protocol handler for VLC
     const vlcUrl = `vlc://${item.url}`;
     window.location.href = vlcUrl;
   };
 
-  if (viewMode === "list") {
+  if (viewMode === 'list') {
     return (
       <motion.div
         layout
@@ -69,35 +68,35 @@ const MediaCard = ({
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.2, delay: (index % 10) * 0.02 }}
-        className={`bento-card p-3 transition-all group relative overflow-hidden flex items-center justify-between gap-4 cursor-pointer hover:border-brand-green/50 ${isSelected ? "bg-brand-green/10 border-brand-green/30" : "bg-black/40"}`}
+        className={`m3-card !p-3 flex-row items-center justify-between gap-4 cursor-pointer hover:border-primary/50 group ${isSelected ? "bg-primary/10 border-primary/30" : "bg-surface-container-high/40"}`}
         onClick={() => playMedia(item)}
       >
         <div className="flex items-center gap-3 truncate">
           <button
             onClick={(e) => toggleSelection(e, item.id!)}
-            className="text-white/40 hover:text-brand-green p-1 transition-colors"
+            className="text-on-surface-variant/40 hover:text-primary p-1 transition-colors"
           >
             {isSelected ? (
-              <CheckSquare className="w-4 h-4 text-brand-green" />
+              <CheckSquare className="w-4 h-4 text-primary" />
             ) : (
               <Square className="w-4 h-4" />
             )}
           </button>
           <div className="flex flex-col truncate">
             <div className="flex items-center gap-2">
-              <span className="text-white font-mono text-sm truncate group-hover:text-brand-green">
+              <span className="text-on-surface font-mono text-sm truncate group-hover:text-primary">
                 {item.name}
               </span>
               {item.quality && (
-                <span className="text-[8px] px-1 py-0.5 rounded bg-white/5 border border-white/10 text-white/40 font-mono">
+                <span className="text-[8px] px-2 py-0.5 rounded-full bg-on-surface/5 border border-outline-variant text-on-surface-variant font-mono">
                   {item.quality}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-[9px] text-white/40 uppercase tracking-widest truncate">
+            <div className="flex items-center gap-2 text-[9px] text-on-surface-variant font-black uppercase tracking-widest truncate opacity-60">
               <span>{item.category || item.type}</span>
               {item.language && (
-                <span className="flex items-center gap-1 text-brand-cyan/60">
+                <span className="flex items-center gap-1 text-secondary">
                   <Globe className="w-2.5 h-2.5" />
                   {item.language}
                 </span>
@@ -106,21 +105,21 @@ const MediaCard = ({
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <div className="flex gap-1">
-             {item.is_dubbed && <span title="Dubbed"><Mic className="w-3 h-3 text-brand-green/60" /></span>}
-             {item.is_subtitled && <span title="Subtitled"><SubtitlesIcon className="w-3 h-3 text-brand-cyan/60" /></span>}
+          <div className="flex gap-1.5">
+             {item.is_dubbed && <span title="Dubbed"><Mic className="w-3.5 h-3.5 text-primary/60" /></span>}
+             {item.is_subtitled && <span title="Subtitled"><SubtitlesIcon className="w-3.5 h-3.5 text-secondary/60" /></span>}
           </div>
 
           {item.relevance_score !== undefined && (
-            <span className="hidden sm:inline-flex text-[9px] font-mono px-2 py-0.5 rounded bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20">
+            <span className="hidden sm:inline-flex text-[9px] font-mono px-2.5 py-0.5 rounded-full bg-secondary/10 text-secondary border border-secondary/20">
               {item.relevance_score.toFixed(2)}
             </span>
           )}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
                onClick={handleOpenVLC}
                title="Open in VLC"
-               className="p-1.5 text-white/40 hover:text-[#FF8800] hover:bg-[#FF8800]/10 rounded transition-colors"
+               className="p-2 text-on-surface-variant hover:text-[#FF8800] hover:bg-[#FF8800]/10 rounded-full transition-colors"
             >
                <Monitor className="w-4 h-4" />
             </button>
@@ -130,7 +129,7 @@ const MediaCard = ({
                   e.stopPropagation();
                   onAddToPlaylist(item);
                 }}
-                className="p-1.5 text-white/40 hover:text-brand-green hover:bg-brand-green/10 rounded transition-colors"
+                className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
               >
                 <ListPlus className="w-4 h-4" />
               </button>
@@ -141,7 +140,7 @@ const MediaCard = ({
                   e.stopPropagation();
                   handleDownload(item);
                 }}
-                className="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
+                className="p-2 text-on-surface-variant hover:text-on-surface hover:bg-on-surface/10 rounded-full transition-colors"
               >
                 <Download className="w-4 h-4" />
               </button>
@@ -149,12 +148,12 @@ const MediaCard = ({
             <button
               onClick={(e) => analyzeMedia(item, e)}
               disabled={isAnalyzing === item.id}
-              className="p-1.5 text-white/40 hover:text-brand-cyan hover:bg-brand-cyan/10 rounded transition-colors"
+              className="p-2 text-on-surface-variant hover:text-secondary hover:bg-secondary/10 rounded-full transition-colors"
             >
               {isAnalyzing === item.id ? (
-                <Loader2 className="w-4 h-4 animate-spin text-brand-cyan" />
+                <Loader2 className="w-4 h-4 animate-spin text-secondary" />
               ) : (
-                <Sparkles className="w-4 h-4 text-brand-cyan" />
+                <Sparkles className="w-4 h-4 text-secondary" />
               )}
             </button>
           </div>
@@ -170,16 +169,16 @@ const MediaCard = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2, delay: (index % 10) * 0.02 }}
-      className={`bento-card p-4 transition-all group relative overflow-hidden cursor-pointer hover:border-brand-green/50 ${isSelected ? "bg-brand-green/10 border-brand-green/30" : "bg-black/40"}`}
+      className={`m3-card transition-all group relative cursor-pointer hover:border-primary/50 ${isSelected ? "bg-primary/10 border-primary/30" : ""}`}
       onClick={() => playMedia(item)}
     >
-      <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute top-4 right-4 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={handleOpenVLC}
           title="Open in VLC"
-          className="p-1.5 text-white/60 hover:text-[#FF8800] bg-black/50 hover:bg-[#FF8800]/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-[#FF8800]/20"
+          className="p-2 text-on-surface/60 hover:text-[#FF8800] bg-surface-container-highest/80 hover:bg-[#FF8800]/20 rounded-full backdrop-blur-sm transition-colors border border-outline-variant hover:border-[#FF8800]/20"
         >
-          <Monitor className="w-3 h-3" />
+          <Monitor className="w-3.5 h-3.5" />
         </button>
         {handleDownload && (
           <button
@@ -187,9 +186,9 @@ const MediaCard = ({
               e.stopPropagation();
               handleDownload(item);
             }}
-            className="p-1.5 text-white/60 hover:text-white bg-black/50 hover:bg-white/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-white/20"
+            className="p-2 text-on-surface/60 hover:text-on-surface bg-surface-container-highest/80 hover:bg-on-surface/20 rounded-full backdrop-blur-sm transition-colors border border-outline-variant"
           >
-            <Download className="w-3 h-3" />
+            <Download className="w-3.5 h-3.5" />
           </button>
         )}
         {onAddToPlaylist && (
@@ -198,72 +197,74 @@ const MediaCard = ({
               e.stopPropagation();
               onAddToPlaylist(item);
             }}
-            className="p-1.5 text-white/60 hover:text-brand-green bg-black/50 hover:bg-brand-green/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-brand-green/20"
+            className="p-2 text-on-surface/60 hover:text-primary bg-surface-container-highest/80 hover:bg-primary/20 rounded-full backdrop-blur-sm transition-colors border border-outline-variant hover:border-primary/20"
           >
-            <ListPlus className="w-3 h-3" />
+            <ListPlus className="w-3.5 h-3.5" />
           </button>
         )}
         <button
           onClick={(e) => toggleSelection(e, item.id!)}
-          className="p-1.5 text-white/60 hover:text-brand-green bg-black/50 hover:bg-brand-green/20 rounded backdrop-blur-sm transition-colors border border-transparent hover:border-brand-green/20"
+          className="p-2 text-on-surface/60 hover:text-primary bg-surface-container-highest/80 hover:bg-primary/20 rounded-full backdrop-blur-sm transition-colors border border-outline-variant hover:border-primary/20"
         >
           {isSelected ? (
-            <CheckSquare className="w-3 h-3 text-brand-green" />
+            <CheckSquare className="w-3.5 h-3.5 text-primary" />
           ) : (
-            <Square className="w-3 h-3" />
+            <Square className="w-3.5 h-3.5" />
           )}
         </button>
       </div>
-      <div className="flex justify-between items-start mb-2 pr-16">
-        <div className="flex flex-col gap-0.5">
-          <p className="text-white font-mono text-sm group-hover:text-brand-green truncate">
+      <div className="flex justify-between items-start mb-2 pr-20">
+        <div className="flex flex-col gap-1">
+          <p className="text-on-surface font-black text-base group-hover:text-primary truncate transition-colors">
             {item.name}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {item.quality && (
-              <span className="text-[8px] font-mono text-white/30 tracking-tight">[{item.quality}]</span>
+              <span className="text-[10px] font-black font-mono text-on-surface-variant opacity-40 tracking-tighter uppercase">[{item.quality}]</span>
             )}
             {item.language && (
-              <span className="text-[8px] font-mono text-brand-cyan/50 flex items-center gap-1 uppercase tracking-tight">
-                <Globe className="w-2.5 h-2.5" />
+              <span className="text-[10px] font-black font-mono text-secondary/60 flex items-center gap-1.5 uppercase tracking-tighter">
+                <Globe className="w-3 h-3" />
                 {item.language}
               </span>
             )}
           </div>
         </div>
       </div>
-      <div className="flex flex-col gap-1 mb-6">
+      <div className="flex flex-col gap-2 mt-2">
         <div className="flex items-center justify-between">
-           <span className="text-[10px] text-white/40 uppercase tracking-widest truncate">
+           <span className="text-[10px] text-on-surface-variant font-black uppercase tracking-widest truncate opacity-50">
              {item.category || item.type}
            </span>
-           <div className="flex gap-1.5">
-              {item.is_dubbed && <span title="Audio Enriched / Dubbed"><Mic className="w-3 h-3 text-brand-green/40" /></span>}
-              {item.is_subtitled && <span title="CC / Subtitles"><SubtitlesIcon className="w-3 h-3 text-brand-cyan/40" /></span>}
+           <div className="flex gap-2">
+              {item.is_dubbed && <span title="Audio Enriched / Dubbed"><Mic className="w-4 h-4 text-primary/50" /></span>}
+              {item.is_subtitled && <span title="CC / Subtitles"><SubtitlesIcon className="w-4 h-4 text-secondary/50" /></span>}
            </div>
         </div>
-        <span className="text-[10px] text-brand-cyan/60 line-clamp-2 leading-relaxed h-8">
+        <span className="text-[11px] text-on-surface-variant/80 line-clamp-2 leading-relaxed h-10 italic">
           {item.description}
         </span>
       </div>
-      <div className="absolute bottom-3 left-4 flex gap-2">
-        {item.relevance_score !== undefined && (
-          <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20">
-            {item.relevance_score.toFixed(2)} REL
-          </span>
-        )}
+      <div className="mt-auto pt-4 flex items-center justify-between">
+        <div className="flex gap-2">
+          {item.relevance_score !== undefined && (
+            <span className="text-[9px] font-black font-mono px-2 py-0.5 rounded-full bg-secondary/10 text-secondary border border-secondary/20">
+              {item.relevance_score.toFixed(2)} REL
+            </span>
+          )}
+        </div>
+        <button
+          onClick={(e) => analyzeMedia(item, e)}
+          className="p-3 bg-secondary/10 hover:bg-secondary/20 rounded-full transition-all active:scale-95 group/intel"
+          disabled={isAnalyzing === item.id}
+        >
+          {isAnalyzing === item.id ? (
+            <Loader2 className="w-5 h-5 animate-spin text-secondary" />
+          ) : (
+            <Sparkles className="w-5 h-5 text-secondary group-hover/intel:scale-110 transition-transform" />
+          )}
+        </button>
       </div>
-      <button
-        onClick={(e) => analyzeMedia(item, e)}
-        className="absolute bottom-2 right-2 p-2 hover:bg-brand-cyan/20 rounded-full transition-colors"
-        disabled={isAnalyzing === item.id}
-      >
-        {isAnalyzing === item.id ? (
-          <Loader2 className="w-4 h-4 animate-spin text-brand-cyan" />
-        ) : (
-          <Sparkles className="w-4 h-4 text-brand-cyan" />
-        )}
-      </button>
     </motion.div>
   );
 };
@@ -804,24 +805,24 @@ export const DiscoverView = ({
 
             <div className="flex gap-2 relative">
               {isRenaming ? (
-                <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
+                <div className="flex items-center gap-2 bg-surface-container-high p-1 rounded-2xl border border-outline-variant">
                   <input
                     type="text"
                     value={renamePrefix}
                     onChange={(e) => setRenamePrefix(e.target.value)}
                     placeholder="Prefix..."
-                    className="bg-transparent border-none focus:outline-none text-[10px] text-white px-2 w-24 font-mono"
+                    className="bg-transparent border-none focus:outline-none text-[10px] text-on-surface px-3 w-28 font-mono"
                     autoFocus
                   />
                   <button
                     onClick={handleBatchRename}
-                    className="bg-brand-green/20 text-brand-green p-1.5 rounded-lg hover:bg-brand-green/30 transition-colors"
+                    className="m3-button-filled !px-3 !py-2 !rounded-xl"
                   >
                     <CheckSquare className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setIsRenaming(false)}
-                    className="bg-white/5 text-white/40 p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                    className="m3-button-tonal !px-3 !py-2 !rounded-xl bg-error/10 text-error hover:bg-error/20"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -829,20 +830,20 @@ export const DiscoverView = ({
               ) : (
                 <button
                   onClick={() => setIsRenaming(true)}
-                  className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white uppercase tracking-widest text-[9px] sm:text-[10px] font-black px-4 py-2 rounded-xl transition-colors border border-white/5"
+                  className="m3-button-tonal !text-[10px] !tracking-widest !font-black !px-4 !py-2 !gap-2"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Batch Rename</span>
+                  <span className="hidden sm:inline uppercase">Batch Rename</span>
                 </button>
               )}
 
               <div className="relative">
                 <button
                   onClick={() => setShowExportDropdown(!showExportDropdown)}
-                  className="flex items-center gap-2 bg-brand-cyan/20 hover:bg-brand-cyan/30 text-brand-cyan border border-brand-cyan/20 uppercase tracking-widest text-[9px] sm:text-[10px] font-black px-4 py-2 rounded-xl transition-colors"
+                  className="m3-button-filled !text-[10px] !tracking-widest !font-black !px-4 !py-2 !gap-2 !bg-secondary !text-on-secondary"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Bulk Export</span>
+                  <span className="hidden sm:inline uppercase">Bulk Export</span>
                 </button>
                 <AnimatePresence>
                   {showExportDropdown && (
@@ -850,24 +851,24 @@ export const DiscoverView = ({
                       initial={{ opacity: 0, scale: 0.95, y: 10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                      className="absolute bottom-full right-0 mb-2 w-40 bg-black/95 backdrop-blur-xl border border-brand-cyan/30 rounded-xl overflow-hidden shadow-2xl z-[210]"
+                      className="absolute bottom-full right-0 mb-3 w-44 bg-surface-container-high border border-outline-variant rounded-2xl overflow-hidden shadow-2xl z-[210] backdrop-blur-xl"
                     >
-                      <div className="text-[9px] font-mono text-white/40 px-3 py-2 border-b border-white/5 uppercase tracking-widest bg-brand-cyan/5">
+                      <div className="text-[9px] font-mono text-on-surface-variant/40 px-4 py-2.5 border-b border-outline-variant uppercase tracking-widest bg-secondary/5 font-black">
                         Select Format
                       </div>
                       <button
                         onClick={() => exportSelected("json")}
-                        className="w-full text-left px-3 py-2.5 text-xs text-white hover:bg-brand-cyan/20 hover:text-brand-cyan transition-colors flex items-center gap-2"
+                        className="w-full text-left px-4 py-3 text-xs text-on-surface hover:bg-secondary/10 hover:text-secondary transition-all flex items-center gap-3 font-medium"
                       >
-                        <FileJson className="w-3.5 h-3.5" />
-                        <span>JSON Export</span>
+                        <FileJson className="w-4 h-4" />
+                        <span>JSON Vector</span>
                       </button>
                       <button
                         onClick={() => exportSelected("m3u")}
-                        className="w-full text-left px-3 py-2.5 text-xs text-white hover:bg-brand-cyan/20 hover:text-brand-cyan transition-colors flex items-center gap-2"
+                        className="w-full text-left px-4 py-3 text-xs text-on-surface hover:bg-secondary/10 hover:text-secondary transition-all flex items-center gap-3 font-medium"
                       >
-                        <FileM3U className="w-3.5 h-3.5" />
-                        <span>M3U Playlist</span>
+                        <FileM3U className="w-4 h-4" />
+                        <span>M3U Tunnel</span>
                       </button>
                     </motion.div>
                   )}
@@ -877,10 +878,10 @@ export const DiscoverView = ({
               {handleDownload && (
                 <button
                   onClick={handleBulkDownload}
-                  className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white uppercase tracking-widest text-[9px] sm:text-[10px] font-black px-4 py-2 rounded-xl transition-colors border border-white/5"
+                  className="m3-button-tonal !text-[10px] !tracking-widest !font-black !px-4 !py-2 !gap-2"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Bulk Download</span>
+                  <span className="hidden sm:inline uppercase">Bulk Download</span>
                 </button>
               )}
               {onBulkAddToPlaylist && playlists.length > 0 && (
@@ -889,10 +890,10 @@ export const DiscoverView = ({
                     onClick={() =>
                       setShowBulkPlaylistDropdown(!showBulkPlaylistDropdown)
                     }
-                    className="flex items-center gap-2 bg-brand-green/20 hover:bg-brand-green/30 text-brand-green border border-brand-green/20 uppercase tracking-widest text-[9px] sm:text-[10px] font-black px-4 py-2 rounded-xl transition-colors"
+                    className="m3-button-filled !text-[10px] !tracking-widest !font-black !px-4 !py-2 !gap-2"
                   >
                     <ListPlus className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Add to Playlist</span>
+                    <span className="hidden sm:inline uppercase">Add to Playlist</span>
                   </button>
                   <AnimatePresence>
                     {showBulkPlaylistDropdown && (
@@ -900,20 +901,20 @@ export const DiscoverView = ({
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                        className="absolute bottom-full right-0 mb-2 w-48 bg-black/95 backdrop-blur-xl border border-brand-green/30 rounded-xl overflow-hidden shadow-2xl"
+                        className="absolute bottom-full right-0 mb-3 w-56 bg-surface-container-high border border-outline-variant rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl"
                       >
-                        <div className="text-[9px] font-mono text-white/40 px-3 py-2 border-b border-white/5 uppercase tracking-widest bg-brand-green/5">
-                          Select Target
+                        <div className="text-[9px] font-mono text-on-surface-variant/40 px-4 py-2.5 border-b border-outline-variant uppercase tracking-widest bg-primary/5 font-black">
+                          Select Cluster
                         </div>
-                        <div className="max-h-48 overflow-y-auto">
+                        <div className="max-h-56 overflow-y-auto custom-scrollbar">
                           {playlists.map((p) => (
                             <button
                               key={p.id}
                               onClick={() => bulkAddItemsToPlaylist(p.id)}
-                              className="w-full text-left px-3 py-2.5 text-xs text-white hover:bg-brand-green/20 hover:text-brand-green transition-colors flex items-center justify-between group"
+                              className="w-full text-left px-4 py-3.5 text-xs text-on-surface hover:bg-primary/10 hover:text-primary transition-all flex items-center justify-between group font-medium"
                             >
                               <span className="truncate">{p.name}</span>
-                              <ListPlus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                              <ListPlus className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
                           ))}
                         </div>
@@ -924,9 +925,9 @@ export const DiscoverView = ({
               )}
               <button
                 onClick={() => setSelectedItems(new Set())}
-                className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-colors border border-red-500/10 hover:border-red-500/20"
+                className="m3-button-tonal !px-3 !bg-error/10 !text-error !border-error/20 hover:!bg-error/20"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </motion.div>
