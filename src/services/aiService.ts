@@ -84,6 +84,9 @@ const runGemini: Provider["run"] = async (prompt, system, type, temp, useSearch)
   const config: any = {
     systemInstruction: system,
     temperature: temp,
+    topK: 40,
+    topP: 0.95,
+    maxOutputTokens: 8192,
   };
 
   if (type === 'json') {

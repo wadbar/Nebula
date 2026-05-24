@@ -7,6 +7,7 @@ import http from "http";
 import https from "https";
 import yts from "yt-search";
 import type { Socket } from "net";
+import compression from "compression";
 
 // Enterprise Security & Resilience Modules
 import helmet from "helmet";
@@ -125,9 +126,18 @@ async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000", 10);
 
-  // Parse Body payload constraints
-  app.use(express.json({ limit: "5mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+  // Supreme Compression & Parsing Otimization
+  app.use(compression({ level: 9, threshold: 0 }));
+  app.use(express.json({ limit: "50mb", strict: false }));
+  app.use(express.urlencoded({ extended: true, limit: "50mb", parameterLimit: 100000 }));
+  
+  // Otimização de Socket de Rede para extrema eficiência de stream
+  http.globalAgent.maxSockets = 50000;
+  https.globalAgent.maxSockets = 50000;
+  // @ts-ignore
+  http.globalAgent.keepAlive = true;
+  // @ts-ignore
+  https.globalAgent.keepAlive = true;
 
   app.set("trust proxy", 1);
 

@@ -97,7 +97,7 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
   };
 
   return (
-    <div className="flex-1 m3-card p-6 flex flex-col">
+    <div className="flex-1 m3-card flex flex-col">
       <div className="flex justify-between items-center mb-6">
          <h3 className="text-xs font-mono text-primary tracking-widest uppercase opacity-80 flex items-center gap-3">
            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />

@@ -43,6 +43,7 @@ interface ListCardProps {
   isSubtitleEnabled: boolean;
   setIsSubtitleEnabled: (val: boolean) => void;
   onAddToPlaylist: (item: MediaResult) => void;
+  openInVlc: (url: string) => void;
 }
 
 const getWebcamCategory = (item: MediaResult): string => {
@@ -70,7 +71,8 @@ const ListCard: React.FC<ListCardProps> = ({
   onHover,
   isSubtitleEnabled,
   setIsSubtitleEnabled,
-  onAddToPlaylist
+  onAddToPlaylist,
+  openInVlc
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -239,8 +241,8 @@ const ListCard: React.FC<ListCardProps> = ({
               />
               <button type="submit" className="bg-brand-green/20 text-brand-green text-[8px] px-1.5 py-0.5 rounded hover:bg-brand-green/30">+</button>
             </form>
-            {localTags.slice(0, 3).map((t: string) => (
-               <span key={t} className="text-[7px] px-1.5 py-0.5 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded text-white/50 uppercase">{t}</span>
+            {localTags.slice(0, 3).map((t: string, idx: number) => (
+               <span key={`${item.id}-tag-${idx}`} className="text-[7px] px-1.5 py-0.5 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded text-white/50 uppercase">{t}</span>
             ))}
           </div>
           <div className="flex items-center gap-2 mt-2 overflow-hidden">
@@ -267,11 +269,7 @@ const ListCard: React.FC<ListCardProps> = ({
         <button 
           onClick={(e) => { 
              e.stopPropagation(); 
-             const iframe = document.createElement('iframe');
-             iframe.src = `vlc://${item.url}`;
-             iframe.style.display = 'none';
-             document.body.appendChild(iframe);
-             setTimeout(() => document.body.contains(iframe) && document.body.removeChild(iframe), 2000);
+             openInVlc(item.url);
           }}
           title="Bypass & Execute in VLC Engine"
           className="m3-button-tonal !w-12 !h-12 !p-0 !min-w-0 bg-[#FF8800]/20 hover:!bg-[#FF8800]/40 text-[#FF8800] border border-[#FF8800]/50 shadow-[0_0_10px_rgba(255,136,0,0.3)] transition-all transform hover:scale-110"

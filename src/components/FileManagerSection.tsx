@@ -290,7 +290,7 @@ export const FileManagerSection: React.FC<FileManagerProps> = ({ onImportMedia }
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                      {searchHistory.map((h, i) => (
                        <button
-                         key={i}
+                         key={`history-${h}-${i}`}
                          onClick={() => handleSearchSubmit(h)}
                          className="flex items-center gap-5 px-8 py-5 rounded-[24px] hover:bg-primary/10 hover:text-primary transition-all text-base font-mono group/item text-left border-2 border-transparent hover:border-primary/20"
                        >
@@ -304,7 +304,7 @@ export const FileManagerSection: React.FC<FileManagerProps> = ({ onImportMedia }
              </AnimatePresence>
           </div>
 
-          <div className="bg-surface-container/10 border border-outline-variant rounded-[48px] shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden">
+          <div className="m3-card shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden">
              {/* Sort Header */}
              <div className="flex items-center gap-8 px-12 py-6 border-b border-outline-variant bg-surface-container-high/30">
                 <button 
@@ -356,7 +356,7 @@ export const FileManagerSection: React.FC<FileManagerProps> = ({ onImportMedia }
                                <span>
                                   {file.name.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
                                      part.toLowerCase() === searchQuery.toLowerCase() 
-                                       ? <mark key={i} className="bg-primary/20 text-primary px-2 rounded-xl border border-primary/20">{part}</mark>
+                                       ? <mark key={`${file.id}-part-${i}`} className="bg-primary/20 text-primary px-2 rounded-xl border border-primary/20">{part}</mark>
                                        : part
                                   )}
                                </span>
@@ -406,7 +406,7 @@ export const FileManagerSection: React.FC<FileManagerProps> = ({ onImportMedia }
 
         {/* Action Panel */}
         <div className="xl:col-span-4 space-y-10">
-          <div className="bg-surface-container-high border-2 border-outline-variant rounded-[56px] p-10 shadow-2xl relative overflow-hidden group/deploy shadow-primary/5">
+          <div className="m3-card !bg-surface-container-high shadow-2xl relative overflow-hidden group/deploy shadow-primary/5">
             <div className="absolute top-0 right-0 p-10 opacity-[0.02] rotate-12 group-hover/deploy:opacity-[0.1] transition-all duration-1000">
                <Cpu className="w-80 h-80" />
             </div>
@@ -611,7 +611,7 @@ export const FileManagerSection: React.FC<FileManagerProps> = ({ onImportMedia }
           </div>
 
           {/* Dynamic Monitoring Info */}
-          <div className="bg-surface-container/20 border-2 border-outline-variant rounded-[56px] p-10 space-y-8 shadow-sm">
+          <div className="m3-card !bg-surface-container/20 shadow-sm">
              <div className="flex items-center gap-5 text-on-surface-variant">
                <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20">
                  <Info className="w-6 h-6" />

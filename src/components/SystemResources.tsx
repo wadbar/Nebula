@@ -8,48 +8,43 @@ export const SystemResources = React.memo(() => {
   const [isHistoricalMode, setIsHistoricalMode] = useState(false);
 
   useEffect(() => {
+    let worker: Worker;
     let interval: NodeJS.Timeout;
 
-    if (isHistoricalMode) {
-      // Historical data: 60 data points, 1 per minute for the last hour
-      const historicalData = Array.from({ length: 60 }).map((_, i) => ({
-        time: new Date(Date.now() - (59 - i) * 60000).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' }),
-        cpu: Math.floor(Math.random() * 60) + 20, // slightly higher spread for historical
-        memory: Math.floor(Math.random() * 40) + 40,
-      }));
-      setData(historicalData);
-    } else {
-      // Initial live data: 20 data points, 1 every 2 seconds
-      const initialData = Array.from({ length: 20 }).map((_, i) => ({
-        time: new Date(Date.now() - (19 - i) * 2000).toLocaleTimeString([], { hour12: false, minute: '2-digit', second: '2-digit' }),
-        cpu: Math.floor(Math.random() * 40) + 10,
-        memory: Math.floor(Math.random() * 20) + 40,
-      }));
-      setData(initialData);
+    try {
+      worker = new Worker(new URL('../workers/telemetryWorker.ts', import.meta.url), { type: 'module' });
 
-      interval = setInterval(() => {
-        setData((prev) => {
-          const newData = [...prev.slice(1)];
-          const lastValue = prev[prev.length - 1] || { cpu: 20, memory: 40 };
-          
-          let nextCpu = lastValue.cpu + (Math.random() * 20 - 10);
-          nextCpu = Math.max(5, Math.min(95, nextCpu));
-          
-          let nextMemory = lastValue.memory + (Math.random() * 10 - 5);
-          nextMemory = Math.max(20, Math.min(85, nextMemory));
-
-          newData.push({
-            time: new Date().toLocaleTimeString([], { hour12: false, minute: '2-digit', second: '2-digit' }),
-            cpu: Math.floor(nextCpu),
-            memory: Math.floor(nextMemory)
+      worker.onmessage = (e) => {
+        if (e.data.type === 'HISTORICAL_DATA' || e.data.type === 'LIVE_DATA') {
+          setData(e.data.data);
+        } else if (e.data.type === 'TICK_DATA') {
+          setData((prev) => {
+            const newData = [...prev.slice(1)];
+            newData.push(e.data.data);
+            return newData;
           });
-          return newData;
-        });
-      }, 2000);
+        }
+      };
+
+      if (isHistoricalMode) {
+        worker.postMessage({ type: 'GENERATE_HISTORICAL', length: 60 });
+      } else {
+        worker.postMessage({ type: 'GENERATE_INITIAL_LIVE', length: 20 });
+        interval = setInterval(() => {
+          setData((prev) => {
+            const lastValue = prev[prev.length - 1] || { cpu: 20, memory: 40 };
+            worker.postMessage({ type: 'TICK_LIVE', lastValue });
+            return prev; // State update happens in onmessage
+          });
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('Failed to initialize telemetry worker:', err);
     }
 
     return () => {
       if (interval) clearInterval(interval);
+      if (worker) worker.terminate();
     };
   }, [isHistoricalMode]);
 
@@ -85,9 +80,9 @@ export const SystemResources = React.memo(() => {
            <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--md-sys-color-on-surface-variant)" opacity={0.2} vertical={false} />
-                  <XAxis dataKey="time" stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface)' }} axisLine={false} tickLine={false} />
-                  <YAxis stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface)' }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-on-surface-variant)" opacity={0.2} vertical={false} />
+                  <XAxis dataKey="time" stroke="var(--color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--color-on-surface)' }} axisLine={false} tickLine={false} />
+                  <YAxis stroke="var(--color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--color-on-surface)' }} axisLine={false} tickLine={false} domain={[0, 100]} />
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--md-sys-color-surface-container-high)', borderColor: 'var(--md-sys-color-outline-variant)', borderRadius: '12px', fontSize: '12px' }}
                     itemStyle={{ color: 'var(--color-brand-cyan)', fontWeight: 'bold' }}
@@ -110,9 +105,9 @@ export const SystemResources = React.memo(() => {
            <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--md-sys-color-on-surface-variant)" opacity={0.2} vertical={false} />
-                  <XAxis dataKey="time" stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface)' }} axisLine={false} tickLine={false} />
-                  <YAxis stroke="var(--md-sys-color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--md-sys-color-on-surface)' }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-on-surface-variant)" opacity={0.2} vertical={false} />
+                  <XAxis dataKey="time" stroke="var(--color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--color-on-surface)' }} axisLine={false} tickLine={false} />
+                  <YAxis stroke="var(--color-on-surface-variant)" fontSize={10} tick={{ fill: 'var(--color-on-surface)' }} axisLine={false} tickLine={false} domain={[0, 100]} />
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--md-sys-color-surface-container-high)', borderColor: 'var(--md-sys-color-outline-variant)', borderRadius: '12px', fontSize: '12px' }}
                     itemStyle={{ color: 'var(--color-brand-green)', fontWeight: 'bold' }}

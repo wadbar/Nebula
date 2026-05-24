@@ -37,6 +37,7 @@ interface MatrixCardProps {
   isFavorite: boolean;
   onHover: (item: MediaResult | null) => void;
   onAddToPlaylist: (item: MediaResult) => void;
+  openInVlc: (url: string) => void;
 }
 
 const getWebcamCategory = (item: MediaResult): string => {
@@ -62,6 +63,7 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
   isFavorite, 
   onHover,
   onAddToPlaylist,
+  openInVlc
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -188,7 +190,7 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
              <div className="flex items-center gap-1.5">
                 <div className="flex gap-0.5">
                   {[1,2,3,4].map(i => (
-                    <div key={i} className={`w-1 h-3 rounded-full ${i <= (item.relevance_score! * 4) ? 'bg-primary shadow-[0_0_5px_rgba(var(--md-sys-color-primary-rgb),0.5)]' : 'bg-outline-variant/30'}`} />
+                    <div key={`${item.id}-bar-${i}`} className={`w-1 h-3 rounded-full ${i <= (item.relevance_score! * 4) ? 'bg-primary shadow-[0_0_5px_rgba(var(--md-sys-color-primary-rgb),0.5)]' : 'bg-outline-variant/30'}`} />
                   ))}
                 </div>
                 <span className="text-[10px] font-black text-primary">{(item.relevance_score! * 100).toFixed(0)}%</span>
@@ -256,8 +258,8 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
                {item.type === 'live_cam' && (
                  <span className="text-[7px] px-1 h-[14px] flex items-center bg-primary/15 text-primary border border-primary/35 rounded uppercase font-black">{getWebcamCategory(item)}</span>
                )}
-               {localTags.slice(0, 3).map((t: string) => (
-                 <span key={t} className="text-[7px] px-1 h-[14px] flex items-center bg-surface-container-high border border-outline-variant rounded text-on-surface-variant uppercase">{t}</span>
+               {localTags.slice(0, 3).map((t: string, idx: number) => (
+                 <span key={`${item.id}-tag-${idx}`} className="text-[7px] px-1 h-[14px] flex items-center bg-surface-container-high border border-outline-variant rounded text-on-surface-variant uppercase">{t}</span>
                ))}
             </div>
             <div className="flex gap-2 shrink-0">
@@ -277,11 +279,7 @@ const MatrixCard: React.FC<MatrixCardProps> = ({
               <button 
                 onClick={(e) => { 
                    e.stopPropagation(); 
-                   const iframe = document.createElement('iframe');
-                   iframe.src = `vlc://${item.url}`;
-                   iframe.style.display = 'none';
-                   document.body.appendChild(iframe);
-                   setTimeout(() => document.body.contains(iframe) && document.body.removeChild(iframe), 2000);
+                   openInVlc(item.url);
                 }}
                 title="Bypass & Execute in VLC Engine"
                 className="m3-button-tonal !w-10 !h-10 !p-0 !min-w-0 bg-[#FF8800]/20 hover:!bg-[#FF8800]/40 text-[#FF8800] border border-[#FF8800]/50 shadow-[0_0_10px_rgba(255,136,0,0.3)] transition-all transform hover:scale-110"

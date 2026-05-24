@@ -369,7 +369,7 @@ export default function GeoSearchController({
   ];
 
   return (
-    <div className="m3-card p-6 bg-surface-container hover:border-primary/20 transition-all font-mono relative overflow-hidden group shadow-lg">
+    <div className="m3-card bg-surface-container hover:border-primary/20 transition-all font-mono relative overflow-hidden group shadow-lg">
       <div className="absolute top-0 right-0 w-60 h-60 bg-[radial-gradient(circle_at_100%_0,rgba(var(--color-primary),0.05),transparent)] pointer-events-none" />
       
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-6 border-b border-outline-variant relative z-10">
