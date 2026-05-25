@@ -149,7 +149,10 @@ const formatTime = (timeInSeconds: number) => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MediaResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
+    const saved = localStorage.getItem('nebula_search_history');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Sync state to localStorage
   useEffect(() => {
@@ -422,11 +425,9 @@ const formatTime = (timeInSeconds: number) => {
       setResults(data);
       addLog(`Resolved ${data.length} signal nodes for "${searchQuery}"`, 'success');
       
-      if (!searchHistory.includes(searchQuery)) {
-        const newHistory = [searchQuery, ...searchHistory].slice(0, 50);
-        setSearchHistory(newHistory);
-        localStorage.setItem('nebula_search_history', JSON.stringify(newHistory));
-      }
+      const newHistory = [searchQuery, ...searchHistory].slice(0, 200);
+      setSearchHistory(newHistory);
+      localStorage.setItem('nebula_search_history', JSON.stringify(newHistory));
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         addLog(`Discovery error: ${err.message}`, 'error');
@@ -529,12 +530,12 @@ const formatTime = (timeInSeconds: number) => {
     if (videoRef.current) {
       if (isPlaying) videoRef.current.pause();
       else videoRef.current.play();
-      setIsPlaying(!isPlaying);
     } else if (audioRef.current) {
       if (isPlaying) audioRef.current.pause();
       else audioRef.current.play();
-      setIsPlaying(!isPlaying);
     }
+    // Always toggle isPlaying state so ReactPlayer and other components update
+    setIsPlaying(!isPlaying);
   }, [isPlaying]);
 
   const handleSkipBackward = useCallback(() => {
@@ -711,53 +712,6 @@ const formatTime = (timeInSeconds: number) => {
     }
   };
 
-  // --- Keyboard Shortcuts Listener ---
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in input
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
-
-      let inputCode = "";
-      if (e.ctrlKey) inputCode += "Ctrl+";
-      if (e.altKey) inputCode += "Alt+";
-      if (e.shiftKey) inputCode += "Shift+";
-      inputCode += e.code;
-
-      const activeShortcuts = shortcuts.filter(s => s.currentCode === inputCode);
-      if (activeShortcuts.length > 0) {
-        e.preventDefault();
-        activeShortcuts.forEach(s => {
-          switch (s.id) {
-            case 'toggle_playback':
-              handleTogglePlayback();
-              break;
-            case 'volume_up':
-              setVolume(prev => Math.min(1, prev + 0.1));
-              break;
-            case 'volume_down':
-              setVolume(prev => Math.max(0, prev - 0.1));
-              break;
-            case 'seek_forward':
-              handleSkip();
-              break;
-            case 'seek_backward':
-              handleSkipBackward();
-              break;
-            case 'mute':
-              setVolume(prev => prev === 0 ? 0.8 : 0);
-              break;
-            case 'fullscreen':
-              handleFullscreen();
-              break;
-          }
-        });
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [shortcuts, handleTogglePlayback, handleSkip, handleSkipBackward, handleFullscreen]);
-
   // --- Filtering & Sorting ---
   const filteredResults = useMemo(() => {
     let list = results;
@@ -795,7 +749,7 @@ const formatTime = (timeInSeconds: number) => {
   }, [currentMedia, filteredResults]);
 
   return (
-    <div className="flex bg-[var(--md-sys-color-surface)] text-white w-full h-screen overflow-hidden font-sans selection:bg-brand-green/30 selection:text-brand-green">
+    <div className="flex bg-surface text-on-surface w-full h-screen overflow-hidden font-sans selection:bg-primary/30 selection:text-primary">
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
@@ -833,21 +787,21 @@ const formatTime = (timeInSeconds: number) => {
                     </button>
                  </div>
                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-mono text-white/20 uppercase tracking-widest hidden sm:inline-block">Active Signals: {filteredResults.length}</span>
+                    <span className="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest hidden sm:inline-block">Active Signals: {filteredResults.length}</span>
                     <button 
                       onClick={() => setShowShortcuts(true)}
                       title="Keyboard Shortcuts"
-                      className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-white/40 hover:text-brand-cyan transition-all border border-white/5 font-mono text-[9px] uppercase font-black"
+                      className="p-3 bg-surface-container hover:bg-surface-container-high rounded-2xl text-on-surface-variant hover:text-secondary transition-all border border-outline-variant font-mono text-[9px] uppercase font-black"
                     >
                        KEYS
                     </button>
                     <button 
                       onClick={() => setShowDownloads(true)}
-                      className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-white/40 hover:text-brand-cyan transition-all relative border border-white/5"
+                      className="p-3 bg-surface-container hover:bg-surface-container-high rounded-2xl text-on-surface-variant hover:text-secondary transition-all relative border border-outline-variant"
                     >
                        <Download className="w-5 h-5" />
                        {downloads.filter(d => d.status === 'downloading').length > 0 && (
-                          <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-brand-cyan rounded-full border-2 border-[var(--md-sys-color-surface)] animate-pulse" />
+                          <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-secondary rounded-full border-2 border-[var(--md-sys-color-surface)] animate-pulse" />
                        )}
                     </button>
                  </div>
@@ -962,6 +916,7 @@ const formatTime = (timeInSeconds: number) => {
                 setCurrentTime={setCurrentTime}
                 setDuration={setDuration}
                 setIsBuffering={setIsBuffering}
+                setIsPlaying={setIsPlaying}
                 videoRef={videoRef}
                 audioRef={audioRef}
                 mediaContainerRef={mediaContainerRef}
@@ -979,7 +934,7 @@ const formatTime = (timeInSeconds: number) => {
 
               <div className="flex-1 flex flex-col gap-6 overflow-hidden">
                  <details className="bg-[var(--md-sys-color-surface-container)] rounded-[2rem] p-4 border border-[var(--md-sys-color-outline-variant)]">
-                    <summary className="text-[10px] font-black uppercase tracking-widest text-white/40 cursor-pointer outline-none hover:text-white transition-colors pb-2">Geographic Node Control</summary>
+                    <summary className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant cursor-pointer outline-none hover:text-on-surface transition-colors pb-2">Geographic Node Control</summary>
                     <div className="pt-2">
                        <GeoSearchController 
                          isGeoLocked={false} setIsGeoLocked={() => {}} 
@@ -991,17 +946,17 @@ const formatTime = (timeInSeconds: number) => {
                     </div>
                  </details>
 
-                 <div className="flex-1 bento-card p-6 flex flex-col overflow-hidden">
+                 <div className="flex-1 m3-card p-6 flex flex-col overflow-hidden">
                     <div className="flex items-center gap-2 mb-6">
-                       <Activity className="w-3.5 h-3.5 text-brand-green" />
-                       <h4 className="text-[10px] font-black uppercase tracking-widest text-white/40">Real-time Telemetry Log</h4>
+                       <Activity className="w-3.5 h-3.5 text-primary" />
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Real-time Telemetry Log</h4>
                     </div>
                     <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar font-mono text-[9px] space-y-2">
                        {logs.slice().reverse().map(log => (
                          <div key={log.id} className="flex gap-3 animate-in fade-in slide-in-from-left-2 transition-all">
-                            <span className="text-white/20 shrink-0 select-none">[{new Date(log.timestamp).toLocaleTimeString([], {hour12: false})}]</span>
+                            <span className="text-on-surface-variant shrink-0 select-none">[{new Date(log.timestamp).toLocaleTimeString([], {hour12: false})}]</span>
                             <span className={`
-                               ${log.type === 'success' ? 'text-brand-green' : ''}
+                               ${log.type === 'success' ? 'text-primary' : ''}
                                ${log.type === 'error' ? 'text-red-500' : ''}
                                ${log.type === 'warn' ? 'text-yellow-500' : ''}
                                flex-1 break-words
@@ -1061,14 +1016,20 @@ const formatTime = (timeInSeconds: number) => {
             />
           )}
 
-          {showShortcuts && (
-            <ShortcutManager 
-              shortcuts={shortcuts} 
-              setShortcuts={setShortcuts} 
-              onClose={() => setShowShortcuts(false)} 
-              addLog={addLog}
-            />
-          )}
+          <ShortcutManager 
+            isOpen={showShortcuts}
+            shortcuts={shortcuts} 
+            setShortcuts={setShortcuts} 
+            onClose={() => setShowShortcuts(false)} 
+            addLog={addLog}
+            onTogglePlayback={handleTogglePlayback}
+            onSeekForward={handleSkip}
+            onSeekBackward={handleSkipBackward}
+            onVolumeUp={() => setVolume(v => Math.min(1, v + 0.1))}
+            onVolumeDown={() => setVolume(v => Math.max(0, v - 0.1))}
+            onToggleMute={() => setVolume(v => v === 0 ? 0.8 : 0)}
+            onToggleFullscreen={handleFullscreen}
+          />
         </AnimatePresence>
 
         {/* Invisible Audio Ref */}

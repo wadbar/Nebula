@@ -23,23 +23,87 @@ export const INITIAL_SHORTCUTS: KeyboardShortcut[] = [
 ];
 
 interface ShortcutManagerProps {
+  isOpen: boolean;
   onClose: () => void;
   shortcuts: KeyboardShortcut[];
   setShortcuts: (updated: KeyboardShortcut[]) => void;
-  addLog: (text: string, type: 'info' | 'warn' | 'success' | 'security') => void;
+  addLog: (text: string, type: 'info' | 'warn' | 'success' | 'security' | 'error' | 'crit') => void;
+  
+  // Handlers for shortcuts
+  onTogglePlayback?: () => void;
+  onSeekForward?: () => void;
+  onSeekBackward?: () => void;
+  onVolumeUp?: () => void;
+  onVolumeDown?: () => void;
+  onToggleMute?: () => void;
+  onToggleFullscreen?: () => void;
 }
 
 export default function ShortcutManager({
+  isOpen,
   onClose,
   shortcuts,
   setShortcuts,
-  addLog
+  addLog,
+  onTogglePlayback,
+  onSeekForward,
+  onSeekBackward,
+  onVolumeUp,
+  onVolumeDown,
+  onToggleMute,
+  onToggleFullscreen
 }: ShortcutManagerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Global listener
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+
+      let inputCode = "";
+      if (e.ctrlKey) inputCode += "Ctrl+";
+      if (e.altKey) inputCode += "Alt+";
+      if (e.shiftKey) inputCode += "Shift+";
+      inputCode += e.code;
+
+      const activeShortcuts = shortcuts.filter(s => s.currentCode === inputCode);
+      if (activeShortcuts.length > 0 && !editingId && !isOpen) {
+        e.preventDefault();
+        activeShortcuts.forEach(s => {
+          switch (s.id) {
+            case 'toggle_playback':
+              if (onTogglePlayback) onTogglePlayback();
+              break;
+            case 'volume_up':
+              if (onVolumeUp) onVolumeUp();
+              break;
+            case 'volume_down':
+              if (onVolumeDown) onVolumeDown();
+              break;
+            case 'seek_forward':
+              if (onSeekForward) onSeekForward();
+              break;
+            case 'seek_backward':
+              if (onSeekBackward) onSeekBackward();
+              break;
+            case 'mute':
+              if (onToggleMute) onToggleMute();
+              break;
+            case 'fullscreen':
+              if (onToggleFullscreen) onToggleFullscreen();
+              break;
+          }
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [shortcuts, editingId, isOpen, onTogglePlayback, onSeekForward, onSeekBackward, onVolumeUp, onVolumeDown, onToggleMute, onToggleFullscreen]);
+
   // Monitor keys for assignment
   useEffect(() => {
-    if (!editingId) return;
+    if (!editingId || !isOpen) return;
 
       const handleKeyCapture = (e: KeyboardEvent) => {
       e.preventDefault();
@@ -98,6 +162,8 @@ export default function ShortcutManager({
     if (code === 'ArrowDown') return '↓';
     return code;
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 font-mono text-xs select-none">

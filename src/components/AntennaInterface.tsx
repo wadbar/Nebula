@@ -405,16 +405,16 @@ export default function AntennaInterface() {
 
 
   return (
-    <div className="flex flex-col gap-6 font-mono text-xs text-white/90 animate-[fadeIn_0.5s_ease-out]">
+    <div className="flex flex-col gap-6 font-mono text-xs text-on-surface/90 animate-[fadeIn_0.5s_ease-out]">
       
       {/* HEADER SECTION */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-white/10 pb-4 gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-outline-variant pb-4 gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Radio className="w-5 h-5 text-brand-green animate-pulse" />
-            <h2 className="text-sm font-black tracking-widest text-white uppercase">HARDWARE ANTENNA & RF INTERCONNECTOR ENGINE</h2>
+            <Radio className="w-5 h-5 text-primary animate-pulse" />
+            <h2 className="text-sm font-black tracking-widest text-on-surface uppercase">HARDWARE ANTENNA & RF INTERCONNECTOR ENGINE</h2>
           </div>
-          <p className="text-[10px] text-white/40 max-w-2xl leading-relaxed">
+          <p className="text-[10px] text-on-surface-variant max-w-2xl leading-relaxed">
             Configure direct bindings for physical antennae plugged into the device. Processes TRRS headphone wires, 
             auxiliary cables acting as FM/AM long-wires, USB SDR (RTL-SDR/HackRF) dongles, Wi-Fi networks RSSI metrics, or global web-connected receivers.
           </p>
@@ -460,8 +460,8 @@ export default function AntennaInterface() {
         
         {/* LEFT COLUMN: INTERFACE SELECTOR & INFO DECK */}
         <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
-          <div className="bento-card p-4 flex flex-col gap-4">
-            <h3 className="text-[10px] font-black tracking-widest text-brand-cyan uppercase pb-2 border-b border-white/5">
+          <div className="m3-card p-4 flex flex-col gap-4">
+            <h3 className="text-[10px] font-black tracking-widest text-secondary uppercase pb-2 border-b border-outline-variant">
               CONNECTION MATRIX
             </h3>
             
@@ -506,21 +506,21 @@ export default function AntennaInterface() {
                   }}
                   className={`w-full text-left p-3 rounded-xl border transition-all relative overflow-hidden group flex gap-3 ${
                     selectedInterface === item.id 
-                      ? 'bg-brand-green/5 border-brand-green/30 text-white' 
-                      : 'bg-white/[0.01] border-white/5 hover:border-white/10 hover:bg-white/[0.03] text-white/50'
+                      ? 'bg-primary/5 border-brand-green/30 text-on-surface' 
+                      : 'bg-white/[0.01] border-outline-variant hover:border-outline-variant hover:bg-white/[0.03] text-on-surface/50'
                   }`}
                 >
                   <item.icon className={`w-5 h-5 shrink-0 mt-0.5 ${
-                    selectedInterface === item.id ? 'text-brand-green animate-pulse' : 'text-white/30'
+                    selectedInterface === item.id ? 'text-primary animate-pulse' : 'text-on-surface/30'
                   }`} />
                   <div>
                     <h4 className={`font-extrabold tracking-wide text-[10.5px] uppercase ${
-                      selectedInterface === item.id ? 'text-brand-green' : 'text-white/80'
+                      selectedInterface === item.id ? 'text-primary' : 'text-on-surface'
                     }`}>{item.label}</h4>
-                    <p className="text-[9px] text-white/40 mt-0.5 leading-relaxed">{item.desc}</p>
+                    <p className="text-[9px] text-on-surface-variant mt-0.5 leading-relaxed">{item.desc}</p>
                   </div>
                   {selectedInterface === item.id && (
-                    <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-brand-green animate-ping" />
+                    <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
                   )}
                 </button>
               ))}
@@ -528,8 +528,8 @@ export default function AntennaInterface() {
           </div>
 
           {/* TECHNICAL WIRE DIAGRAM & DOCUMENTATION CARD */}
-          <div className="bento-card p-4 bg-black/40 border border-white/5 text-white/60 leading-relaxed flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-brand-green font-bold">
+          <div className="m3-card p-4 bg-black/40 border border-outline-variant text-on-surface-variant leading-relaxed flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-primary font-bold">
               <Info className="w-4 h-4 shrink-0" />
               <span className="uppercase tracking-widest text-[9.5px]">ANTENNA COUPLING TIPS</span>
             </div>
@@ -602,22 +602,22 @@ export default function AntennaInterface() {
         <div className="col-span-12 lg:col-span-8 flex flex-col gap-4">
           
           {/* SPECTRAL DISPLAY PANEL */}
-          <div className="bento-card p-4 sm:p-6 flex flex-col gap-4 bg-gradient-to-b from-[#060606] to-[#010101] relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-brand-green/20 animate-pulse" />
+          <div className="m3-card p-4 sm:p-6 flex flex-col gap-4 bg-gradient-to-b from-[#060606] to-[#010101] relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-primary/20 animate-pulse" />
             
             <div className="flex justify-between items-center text-[10px]">
-              <span className="font-extrabold tracking-widest text-[9.5px] text-brand-green uppercase flex items-center gap-2">
+              <span className="font-extrabold tracking-widest text-[9.5px] text-primary uppercase flex items-center gap-2">
                 <Activity className="w-3.5 h-3.5" />
                 RF SPECTRUM WATERFALL ({modulation})
               </span>
-              <div className="flex items-center gap-4 text-white/40">
-                <span>TUNED: <b className="text-white font-black">{frequency.toFixed(4)} MHz</b></span>
-                <span>SPAN: <b className="text-brand-cyan">{(bandwidth / 1000).toFixed(3)} MHz</b></span>
+              <div className="flex items-center gap-4 text-on-surface-variant">
+                <span>TUNED: <b className="text-on-surface font-black">{frequency.toFixed(4)} MHz</b></span>
+                <span>SPAN: <b className="text-secondary">{(bandwidth / 1000).toFixed(3)} MHz</b></span>
               </div>
             </div>
 
             {/* WATERFALL CANVAS */}
-            <div className="relative border border-white/5 rounded-xl overflow-hidden bg-black flex h-52">
+            <div className="relative border border-outline-variant rounded-xl overflow-hidden bg-black flex h-52">
               <canvas 
                 ref={canvasRef} 
                 className="w-full h-full object-cover"
@@ -627,7 +627,7 @@ export default function AntennaInterface() {
               
               {/* Central Tuning Hairline Overlay */}
               <div className="absolute inset-y-0 left-1/2 w-[1.5px] bg-red-500/70 pointer-events-none flex flex-col justify-start items-center">
-                <div className="bg-red-500 text-[8px] px-1 rounded-sm text-white font-bold tracking-tighter mt-1 whitespace-nowrap shadow-lg">
+                <div className="bg-red-500 text-[8px] px-1 rounded-sm text-on-surface font-bold tracking-tighter mt-1 whitespace-nowrap shadow-lg">
                   {frequency.toFixed(3)} MHz
                 </div>
               </div>
@@ -643,7 +643,7 @@ export default function AntennaInterface() {
 
             {/* QUICK PRESET BAND TABS */}
             <div className="flex flex-col gap-2">
-              <span className="text-[9px] font-black tracking-wider text-white/40 uppercase">BAND PRESETS & QUICK COUPLING:</span>
+              <span className="text-[9px] font-black tracking-wider text-on-surface-variant uppercase">BAND PRESETS & QUICK COUPLING:</span>
               <div className="flex flex-wrap gap-1.5">
                 {BAND_PRESETS.map((preset, idx) => (
                   <button
@@ -651,8 +651,8 @@ export default function AntennaInterface() {
                     onClick={() => applyPreset(preset)}
                     className={`px-2.5 py-1.5 rounded-lg border text-[8.5px] font-extrabold transition-all ${
                       Math.abs(frequency - preset.frequency) < 0.01
-                        ? 'bg-brand-green text-black border-brand-green'
-                        : 'bg-white/5 border-white/5 text-white/50 hover:bg-white/10 hover:border-white/10'
+                        ? 'bg-primary text-black border-brand-green'
+                        : 'bg-surface-container border-outline-variant text-on-surface/50 hover:bg-surface-container-high hover:border-outline-variant'
                     }`}
                   >
                     {preset.frequency} MHz - {preset.category}
@@ -666,9 +666,9 @@ export default function AntennaInterface() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
             {/* SIGNAL METRIC GAUGE PANEL */}
-            <div className="bento-card p-4 flex flex-col gap-4">
-              <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                <h3 className="text-[10px] font-black tracking-widest text-brand-green uppercase">
+            <div className="m3-card p-4 flex flex-col gap-4">
+              <div className="flex justify-between items-center pb-2 border-b border-outline-variant">
+                <h3 className="text-[10px] font-black tracking-widest text-primary uppercase">
                   REALTIME SIGNAL INSTRUMENTS
                 </h3>
                 {/* SIGNAL LOCK DISPLAYER */}
@@ -679,7 +679,7 @@ export default function AntennaInterface() {
                       ACQUIRING CARRIER...
                     </span>
                   ) : !isEngaged ? (
-                    <span className="flex items-center gap-1 text-[8px] font-black tracking-wider text-white/30 bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                    <span className="flex items-center gap-1 text-[8px] font-black tracking-wider text-on-surface/30 bg-surface-container px-2 py-0.5 rounded border border-outline-variant">
                       <Unlock className="w-2.5 h-2.5 animate-[ping_2s_linear_infinite]" />
                       STANDBY
                     </span>
@@ -689,12 +689,12 @@ export default function AntennaInterface() {
                       MUTED (SQL GATE)
                     </span>
                   ) : snr > 15 ? (
-                    <span className="flex items-center gap-1 text-[8px] font-black tracking-wider text-brand-green bg-brand-green/10 px-2 py-0.5 rounded border border-brand-green/20">
+                    <span className="flex items-center gap-1 text-[8px] font-black tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded border border-brand-green/20">
                       <Lock className="w-2.5 h-2.5 animate-bounce" />
                       CARRIER LOCKED (Optimum)
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-[8px] font-black tracking-wider text-brand-cyan bg-brand-cyan/10 px-2 py-0.5 rounded border border-brand-cyan/20 animate-pulse">
+                    <span className="flex items-center gap-1 text-[8px] font-black tracking-wider text-secondary bg-secondary/10 px-2 py-0.5 rounded border border-brand-cyan/20 animate-pulse">
                       <Unlock className="w-2.5 h-2.5" />
                       UNLOCKED (Ambient Static)
                     </span>
@@ -708,43 +708,43 @@ export default function AntennaInterface() {
                   {/* RF METRIC PANEL: GAIN & SQUELCH + RSSI & SNR */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Controls (Gain/Squelch) */}
-                     <div className="bg-white/[0.02] p-4 rounded-xl border border-white/5 space-y-4">
-                       <h4 className="text-[9px] font-bold text-white/50 uppercase tracking-widest border-b border-white/5 pb-2">Hardware Tuning</h4>
+                     <div className="bg-white/[0.02] p-4 rounded-xl border border-outline-variant space-y-4">
+                       <h4 className="text-[9px] font-bold text-on-surface/50 uppercase tracking-widest border-b border-outline-variant pb-2">Hardware Tuning</h4>
                        <div className="space-y-3">
-                         <div className="flex justify-between items-center text-[9px] text-white">
-                           <span>Gain: <b className="text-brand-cyan">{rfGain}dB</b></span>
+                         <div className="flex justify-between items-center text-[9px] text-on-surface">
+                           <span>Gain: <b className="text-secondary">{rfGain}dB</b></span>
                          </div>
-                         <input type="range" min="0" max="50" value={rfGain} onChange={(e) => setRfGain(parseInt(e.target.value))} className="w-full accent-brand-cyan h-1.5 rounded-full bg-white/10 cursor-pointer" />
+                         <input type="range" min="0" max="50" value={rfGain} onChange={(e) => setRfGain(parseInt(e.target.value))} className="w-full accent-brand-cyan h-1.5 rounded-full bg-surface-container-high cursor-pointer" />
                          
-                         <div className="flex justify-between items-center text-[9px] text-white">
-                           <span>Squelch: <b className="text-brand-green">{squelch}dBm</b></span>
+                         <div className="flex justify-between items-center text-[9px] text-on-surface">
+                           <span>Squelch: <b className="text-primary">{squelch}dBm</b></span>
                          </div>
-                         <input type="range" min="-120" max="-40" value={squelch} onChange={(e) => setSquelch(parseInt(e.target.value))} className="w-full accent-brand-green h-1.5 rounded-full bg-white/10 cursor-pointer" />
+                         <input type="range" min="-120" max="-40" value={squelch} onChange={(e) => setSquelch(parseInt(e.target.value))} className="w-full accent-brand-green h-1.5 rounded-full bg-surface-container-high cursor-pointer" />
                        </div>
                      </div>
 
                      {/* Visual Indicators (RSSI/SNR) */}
-                     <div className="bg-white/[0.02] p-4 rounded-xl border border-white/5 flex flex-col justify-between">
-                       <h4 className="text-[9px] font-bold text-white/50 uppercase tracking-widest border-b border-white/5 pb-2 mb-3">Signal Analyzer</h4>
+                     <div className="bg-white/[0.02] p-4 rounded-xl border border-outline-variant flex flex-col justify-between">
+                       <h4 className="text-[9px] font-bold text-on-surface/50 uppercase tracking-widest border-b border-outline-variant pb-2 mb-3">Signal Analyzer</h4>
                        
                        <div className="space-y-3 flex-1 flex flex-col justify-center">
                          <div className="space-y-1">
-                           <div className="flex justify-between text-[9px] text-white/60">
+                           <div className="flex justify-between text-[9px] text-on-surface-variant">
                              <span>RSSI</span>
-                             <span className="text-white font-bold">{signalStrength} dBm</span>
+                             <span className="text-on-surface font-bold">{signalStrength} dBm</span>
                            </div>
-                           <div className="h-3 bg-white/5 rounded-full border border-white/10 overflow-hidden flex">
-                             <div className="bg-brand-green h-full transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, (signalStrength + 120) / 90 * 100))}%` }} />
+                           <div className="h-3 bg-surface-container rounded-full border border-outline-variant overflow-hidden flex">
+                             <div className="bg-primary h-full transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, (signalStrength + 120) / 90 * 100))}%` }} />
                            </div>
                          </div>
                          
                          <div className="space-y-1">
-                           <div className="flex justify-between text-[9px] text-white/60">
+                           <div className="flex justify-between text-[9px] text-on-surface-variant">
                              <span>SNR</span>
-                             <span className="text-white font-bold">{snr} dB</span>
+                             <span className="text-on-surface font-bold">{snr} dB</span>
                            </div>
-                           <div className="h-3 bg-white/5 rounded-full border border-white/10 overflow-hidden flex">
-                             <div className="bg-brand-cyan h-full transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, (snr / 40) * 100))}%` }} />
+                           <div className="h-3 bg-surface-container rounded-full border border-outline-variant overflow-hidden flex">
+                             <div className="bg-secondary h-full transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, (snr / 40) * 100))}%` }} />
                            </div>
                          </div>
                        </div>
@@ -753,17 +753,17 @@ export default function AntennaInterface() {
                 </div>
 
                 {/* CONSTELLATION SCOPE DISPLAY */}
-                <div className="col-span-12 md:col-span-4 flex flex-col items-center justify-center p-2.5 bg-black/60 border border-white/5 rounded-xl relative overflow-hidden group">
+                <div className="col-span-12 md:col-span-4 flex flex-col items-center justify-center p-2.5 bg-black/60 border border-outline-variant rounded-xl relative overflow-hidden group">
                   <div className="absolute top-1.5 left-2 flex items-center gap-1 select-none pointer-events-none opacity-40">
-                    <Activity className="w-2.5 h-2.5 text-brand-green" />
-                    <span className="text-[7.5px] tracking-wider uppercase font-bold text-white">IQ PHASE SCOPE</span>
+                    <Activity className="w-2.5 h-2.5 text-primary" />
+                    <span className="text-[7.5px] tracking-wider uppercase font-bold text-on-surface">IQ PHASE SCOPE</span>
                   </div>
                   
                   {/* Scope Plot circle */}
-                  <div className="w-20 h-20 rounded-full border border-white/10 relative flex items-center justify-center bg-black/85 my-1 overflow-hidden">
+                  <div className="w-20 h-20 rounded-full border border-outline-variant relative flex items-center justify-center bg-black/85 my-1 overflow-hidden">
                     {/* Grid lines */}
-                    <div className="absolute inset-x-0 top-1/2 h-[0.5px] bg-white/10" />
-                    <div className="absolute inset-y-0 left-1/2 w-[0.5px] bg-white/10" />
+                    <div className="absolute inset-x-0 top-1/2 h-[0.5px] bg-surface-container-high" />
+                    <div className="absolute inset-y-0 left-1/2 w-[0.5px] bg-surface-container-high" />
                     <div className="absolute w-14 h-14 rounded-full border border-white/[0.04] border-dashed" />
                     
                     {/* Live mapped IQ points */}
@@ -784,28 +784,28 @@ export default function AntennaInterface() {
                               : isMutedBySquelch 
                                 ? 'bg-red-500/30' 
                                 : snr > 20 
-                                  ? 'bg-brand-green shadow-[0_0_4px_#00ff41]' 
-                                  : 'bg-brand-cyan/80 shadow-[0_0_3px_#00e5ff]'
+                                  ? 'bg-primary shadow-[0_0_4px_#00ff41]' 
+                                  : 'bg-secondary/80 shadow-[0_0_3px_#00e5ff]'
                           }`}
                         />
                       );
                     })}
                   </div>
-                  <span className="text-[7.5px] text-white/30 uppercase mt-1">Quadrature Phase Target</span>
+                  <span className="text-[7.5px] text-on-surface/30 uppercase mt-1">Quadrature Phase Target</span>
                 </div>
               </div>
 
               {/* Wi-Fi scan results block */}
               {selectedInterface === 'wifi_bt' && networkSSIDs.length > 0 && (
-                <div className="space-y-1.5 border-t border-white/10 pt-2.5">
-                  <span className="text-[8.5px] text-white/40 block font-black uppercase">MICROWAVE SSIDS DISCOVERED:</span>
+                <div className="space-y-1.5 border-t border-outline-variant pt-2.5">
+                  <span className="text-[8.5px] text-on-surface-variant block font-black uppercase">MICROWAVE SSIDS DISCOVERED:</span>
                   <div className="space-y-1.5">
                     {networkSSIDs.map((net, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-[9px] bg-white/[0.02] p-1.5 rounded border border-white/5">
-                        <span className="text-white font-bold truncate max-w-[150px]">{net.ssid}</span>
+                      <div key={idx} className="flex justify-between items-center text-[9px] bg-white/[0.02] p-1.5 rounded border border-outline-variant">
+                        <span className="text-on-surface font-bold truncate max-w-[150px]">{net.ssid}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-white/40 font-bold">Ch {net.channel}</span>
-                          <span className={`font-black ${net.rssi > -60 ? 'text-brand-green' : 'text-brand-cyan'}`}>
+                          <span className="text-on-surface-variant font-bold">Ch {net.channel}</span>
+                          <span className={`font-black ${net.rssi > -60 ? 'text-primary' : 'text-secondary'}`}>
                             {net.rssi} dBm
                           </span>
                         </div>
@@ -817,17 +817,17 @@ export default function AntennaInterface() {
             </div>
 
             {/* RF TUNER CONTROL PARAMETERS */}
-            <div className="bento-card p-4 flex flex-col gap-4">
-              <h3 className="text-[10px] font-black tracking-widest text-brand-cyan uppercase pb-2 border-b border-white/5">
+            <div className="m3-card p-4 flex flex-col gap-4">
+              <h3 className="text-[10px] font-black tracking-widest text-secondary uppercase pb-2 border-b border-outline-variant">
                 DEMODULATOR INTERMETERS
               </h3>
               
               <div className="space-y-3">
                 {/* Frequency Dial Slider */}
                 <div className="space-y-1">
-                  <div className="flex justify-between text-[9px] text-white/40">
+                  <div className="flex justify-between text-[9px] text-on-surface-variant">
                     <span>MANUAL TUNER DIAL (MHz)</span>
-                    <span className="text-brand-cyan font-black">{frequency.toFixed(3)} MHz</span>
+                    <span className="text-secondary font-black">{frequency.toFixed(3)} MHz</span>
                   </div>
                   <input
                     type="range"
@@ -836,9 +836,9 @@ export default function AntennaInterface() {
                     step="0.05"
                     value={frequency}
                     onChange={(e) => tuneFrequency(parseFloat(e.target.value))}
-                    className="w-full accent-brand-green h-2.5 rounded bg-white/5 cursor-pointer"
+                    className="w-full accent-brand-green h-2.5 rounded bg-surface-container cursor-pointer"
                   />
-                  <div className="flex justify-between text-[8px] text-white/30">
+                  <div className="flex justify-between text-[8px] text-on-surface/30">
                     <span>30 MHz (HF/VHF)</span>
                     <span>1200 MHz (L-Band)</span>
                   </div>
@@ -848,8 +848,8 @@ export default function AntennaInterface() {
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <div className="flex justify-between text-[8.5px] text-white/40">
-                        <span>RF GAIN: <b className="text-white font-extrabold">{rfGain}dB</b></span>
+                      <div className="flex justify-between text-[8.5px] text-on-surface-variant">
+                        <span>RF GAIN: <b className="text-on-surface font-extrabold">{rfGain}dB</b></span>
                       </div>
                       <input
                         type="range"
@@ -857,13 +857,13 @@ export default function AntennaInterface() {
                         max="50"
                         value={rfGain}
                         onChange={(e) => setRfGain(parseInt(e.target.value))}
-                        className="w-full accent-brand-cyan h-2 rounded bg-white/5 cursor-pointer"
+                        className="w-full accent-brand-cyan h-2 rounded bg-surface-container cursor-pointer"
                       />
                     </div>
                     
                     <div className="space-y-1">
-                      <div className="flex justify-between text-[8.5px] text-white/40">
-                        <span>SQUELCH (SQL): <b className="text-white font-extrabold">{squelch}dBm</b></span>
+                      <div className="flex justify-between text-[8.5px] text-on-surface-variant">
+                        <span>SQUELCH (SQL): <b className="text-on-surface font-extrabold">{squelch}dBm</b></span>
                       </div>
                       <input
                         type="range"
@@ -871,20 +871,20 @@ export default function AntennaInterface() {
                         max="-40"
                         value={squelch}
                         onChange={(e) => setSquelch(parseInt(e.target.value))}
-                        className="w-full accent-brand-green h-2 rounded bg-white/5 cursor-pointer"
+                        className="w-full accent-brand-green h-2 rounded bg-surface-container cursor-pointer"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Audio Output volume */}
-                <div className="space-y-1 bg-white/[0.02] p-2 rounded-xl border border-white/5">
-                  <div className="flex justify-between items-center text-[9px] text-white/40">
+                <div className="space-y-1 bg-white/[0.02] p-2 rounded-xl border border-outline-variant">
+                  <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
                     <span className="flex items-center gap-1.5">
                       <Volume2 className="w-3.5 h-3.5" />
                       DEMODULATED AUDIO OUTPUT
                     </span>
-                    <span className="text-white font-bold">{audioVolume}%</span>
+                    <span className="text-on-surface font-bold">{audioVolume}%</span>
                   </div>
                   <input
                     type="range"
@@ -892,7 +892,7 @@ export default function AntennaInterface() {
                     max="100"
                     value={audioVolume}
                     onChange={(e) => setAudioVolume(parseInt(e.target.value))}
-                    className="w-full accent-brand-green h-2 rounded bg-white/5 cursor-pointer"
+                    className="w-full accent-brand-green h-2 rounded bg-surface-container cursor-pointer"
                   />
                 </div>
 
@@ -909,8 +909,8 @@ export default function AntennaInterface() {
                         }}
                         className={`py-1 text-[9px] font-bold rounded border transition-all ${
                           modulation === m
-                            ? 'bg-brand-cyan text-black border-brand-cyan shadow-[0_0_6px_#00e5ff]'
-                            : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:border-white/10'
+                            ? 'bg-secondary text-black border-brand-cyan shadow-[0_0_6px_#00e5ff]'
+                            : 'bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:border-outline-variant'
                         }`}
                       >
                         {m}
@@ -923,34 +923,34 @@ export default function AntennaInterface() {
           </div>
 
           {/* TELEMETRY FEEDBACK & LOGS BOX */}
-          <div className="bento-card p-4 sm:p-5 flex flex-col gap-3 min-h-[160px] bg-black">
-            <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <span className="text-[10px] font-black text-brand-green tracking-widest uppercase flex items-center gap-2">
+          <div className="m3-card p-4 sm:p-5 flex flex-col gap-3 min-h-[160px] bg-black">
+            <div className="flex justify-between items-center border-b border-outline-variant pb-2">
+              <span className="text-[10px] font-black text-primary tracking-widest uppercase flex items-center gap-2">
                 <Cpu className="w-3.5 h-3.5" />
                 ANTENNA SYSTEM CONTROLLER LOGS
               </span>
-              <span className="text-[8px] px-1.5 py-0.5 rounded bg-brand-green/10 text-brand-green/80 border border-brand-green/20">
+              <span className="text-[8px] px-1.5 py-0.5 rounded bg-primary/10 text-primary/80 border border-brand-green/20">
                 ONLINE
               </span>
             </div>
 
             <div className="flex-1 overflow-y-auto max-h-[120px] select-text pr-1 space-y-1.5 font-mono text-[9.5px]">
               {deviceLogs.length === 0 ? (
-                <div className="text-white/20 italic text-center py-6 uppercase tracking-wider">
+                <div className="text-on-surface-variant italic text-center py-6 uppercase tracking-wider">
                   No active logs. Turn on the RF Engine or configure connections to stream diagnostic trace data.
                 </div>
               ) : (
                 deviceLogs.map((log, idx) => (
                   <div key={idx} className="flex gap-2.5 items-start leading-relaxed border-b border-white/[0.02] pb-1">
-                    <span className="text-white/20 shrink-0 select-none">[{log.timestamp}]</span>
+                    <span className="text-on-surface-variant shrink-0 select-none">[{log.timestamp}]</span>
                     <span className={`font-semibold shrink-0 uppercase tracking-tighter ${
-                      log.type === 'success' ? 'text-brand-green' :
+                      log.type === 'success' ? 'text-primary' :
                       log.type === 'warn' ? 'text-yellow-500' :
-                      log.type === 'rf' ? 'text-brand-cyan' : 'text-white/50'
+                      log.type === 'rf' ? 'text-secondary' : 'text-on-surface/50'
                     }`}>
                       [{log.type === 'success' ? 'OK' : log.type === 'warn' ? 'ERR' : log.type === 'rf' ? 'RF' : 'SYS'}]
                     </span>
-                    <span className="text-white/80">{log.text}</span>
+                    <span className="text-on-surface">{log.text}</span>
                   </div>
                 ))
               )}

@@ -15,6 +15,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import NodeCache from "node-cache";
 import { v4 as uuidv4 } from "uuid";
+import { authShield } from "./src/core/security/AuthShield";
 
 dotenv.config();
 
@@ -594,7 +595,7 @@ Ensure all URLs are valid external HTTP/HTTPS links and point to real content or
     }
   });
 
-  app.post("/api/intel", async (req: ExpressRequest, res: ExpressResponse) => {
+  app.post("/api/intel", authShield.verifyToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
       const { signal } = req.body;
       if (!signal || typeof signal !== "object") {
@@ -731,7 +732,15 @@ Por favor, forneça um relatório técnico de inteligência de sinal (SIGINT) co
           return;
         }
 
-        const parsedProxyUrl = new URL(currentUrl);
+        let parsedProxyUrl: URL;
+        try {
+          parsedProxyUrl = new URL(currentUrl);
+        } catch (err) {
+           Logger.error("PROXY_ROUTER", "URI de redirecionamento inválida", err);
+           if (!res.headersSent) res.status(400).send("URI de redirecionamento corrompida");
+           return;
+        }
+
         const protocol = parsedProxyUrl.protocol === "https:" ? https : http;
 
         const requestOptions = {
@@ -740,66 +749,78 @@ Por favor, forneça um relatório técnico de inteligência de sinal (SIGINT) co
           rejectUnauthorized: false
         };
 
-        const proxyReq = protocol.get(currentUrl, requestOptions, (proxyRes) => {
-           if (proxyRes.statusCode && proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
-             redirectCount++;
-             const nextUrl = new URL(proxyRes.headers.location, currentUrl).href;
-             
-             // Blindagem Ativa contra Vazamento (Flush explícito da memória após redirecionamento cancelado)
-             proxyRes.destroy();
-             performRequest(nextUrl);
-             return;
-           }
-
-           res.status(proxyRes.statusCode || 200);
-           
-           const blockedHeaders = [
-             "access-control-allow-origin", 
-             "access-control-allow-credentials",
-             "access-control-allow-methods",
-             "access-control-allow-headers",
-             "content-security-policy", 
-             "x-frame-options", 
-             "set-cookie"
-           ];
-
-           Object.entries(proxyRes.headers).forEach(([key, value]) => {
-             if (!blockedHeaders.includes(key.toLowerCase()) && value) {
-               res.setHeader(key, value as string | string[]);
+        try {
+          const proxyReq = protocol.get(currentUrl, requestOptions, (proxyRes) => {
+             if (proxyRes.statusCode && proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
+               redirectCount++;
+               let nextUrl: string;
+               try {
+                 nextUrl = new URL(proxyRes.headers.location, currentUrl).href;
+               } catch (e) {
+                 Logger.error("PROXY_ROUTER", "Cabeçalho Location inválido no redirecionamento", e);
+                 if (!res.headersSent) res.status(502).send("Redirecionamento falhou");
+                 return;
+               }
+               
+               // Blindagem Ativa contra Vazamento (Flush explícito da memória após redirecionamento cancelado)
+               proxyRes.destroy();
+               performRequest(nextUrl);
+               return;
              }
-           });
 
-           res.setHeader("Access-Control-Allow-Origin", "*");
-           res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-           res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range, User-Agent, Referer, Accept-Encoding");
-           res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges, Content-Type");
+             res.status(proxyRes.statusCode || 200);
+             
+             const blockedHeaders = [
+               "access-control-allow-origin", 
+               "access-control-allow-credentials",
+               "access-control-allow-methods",
+               "access-control-allow-headers",
+               "content-security-policy", 
+               "x-frame-options", 
+               "set-cookie"
+             ];
 
-           req.on("close", () => {
-             proxyReq.destroy();
-             proxyRes.destroy();
-           });
-
-           if (req.method === "HEAD") {
-             proxyRes.destroy();
-             res.end();
-           } else {
-             proxyRes.pipe(res).on("error", (err: Error) => {
-                Logger.error("PIPELINE_ROUTER", "Despejo asíncrono destruído por falha no pipe", err);
-                if (!res.headersSent) res.status(502).end();
-                else res.end();
+             Object.entries(proxyRes.headers).forEach(([key, value]) => {
+               if (!blockedHeaders.includes(key.toLowerCase()) && value) {
+                 res.setHeader(key, value as string | string[]);
+               }
              });
-           }
-        });
 
-        proxyReq.on("error", (err) => {
-          Logger.error("TLS_ROUTING", "Falha de alocação no socket do proxy", err);
-          if (!res.headersSent) res.status(502).send("Camada de transporte rejeitou a comunicação");
-        });
+             res.setHeader("Access-Control-Allow-Origin", "*");
+             res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+             res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range, User-Agent, Referer, Accept-Encoding");
+             res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges, Content-Type");
 
-        proxyReq.on("timeout", () => {
-          proxyReq.destroy();
-          if (!res.headersSent) res.status(504).send("Latência fatal. Conexão terminada.");
-        });
+             req.on("close", () => {
+               proxyReq.destroy();
+               proxyRes.destroy();
+             });
+
+             if (req.method === "HEAD") {
+               proxyRes.destroy();
+               res.end();
+             } else {
+               proxyRes.pipe(res).on("error", (err: Error) => {
+                  Logger.error("PIPELINE_ROUTER", "Despejo asíncrono destruído por falha no pipe", err);
+                  if (!res.headersSent) res.status(502).end();
+                  else res.end();
+               });
+             }
+          });
+
+          proxyReq.on("error", (err) => {
+            Logger.error("TLS_ROUTING", "Falha de alocação no socket do proxy", err);
+            if (!res.headersSent) res.status(502).send("Camada de transporte rejeitou a comunicação");
+          });
+
+          proxyReq.on("timeout", () => {
+            proxyReq.destroy();
+            if (!res.headersSent) res.status(504).send("Latência fatal. Conexão terminada.");
+          });
+        } catch (dispatchError) {
+          Logger.error("PROXY_DISPATCH", "Exceção síncrona ao despachar proxyReq", dispatchError);
+          if (!res.headersSent) res.status(500).send("Erro interno no pipeline de rede");
+        }
       };
 
       performRequest(targetUrl);
@@ -810,7 +831,7 @@ Por favor, forneça um relatório técnico de inteligência de sinal (SIGINT) co
     }
   });
 
-  app.post("/api/terminal", async (req: ExpressRequest, res: ExpressResponse) => {
+  app.post("/api/terminal", authShield.verifyToken, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
       const { prompt, context, gpuEnabled, gpuDetails } = req.body;
       

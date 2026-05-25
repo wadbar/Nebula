@@ -157,15 +157,15 @@ export const PlaylistViewer = ({
 
     return (
         <div className="space-y-6">
-            <div className="bento-card p-4 bg-white/5 border border-white/10 space-y-4">
-                <h3 className="text-sm font-black text-white uppercase">New Playlist</h3>
+            <div className="m3-card p-4 bg-surface-container border border-outline-variant space-y-4">
+                <h3 className="text-sm font-black text-on-surface uppercase">New Playlist</h3>
                 <div className="flex gap-2">
                     <input 
                         type="text" 
                         value={themeInput} 
                         onChange={(e) => setThemeInput(e.target.value)}
                         placeholder="Playlist name..."
-                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-brand-green/30"
+                        className="flex-1 bg-black/40 border border-outline-variant rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-brand-green/30"
                     />
                     <button 
                         onClick={() => {
@@ -173,7 +173,7 @@ export const PlaylistViewer = ({
                             setThemeInput("");
                         }}
                         disabled={!themeInput}
-                        className="bg-brand-green/20 hover:bg-brand-green/30 text-brand-green px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 border border-brand-green/20"
+                        className="bg-primary/20 hover:bg-primary/30 text-primary px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 border border-brand-green/20"
                     >
                         <PlusSquare className="w-3 h-3" />
                         CREATE
@@ -181,12 +181,12 @@ export const PlaylistViewer = ({
                     <button 
                         onClick={() => generatePlaylist(themeInput)}
                         disabled={isGenerating || !themeInput}
-                        className="bg-brand-green/10 hover:bg-brand-green/20 text-brand-green/70 px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 border border-brand-green/10"
+                        className="bg-primary/10 hover:bg-primary/20 text-primary/70 px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 border border-brand-green/10"
                     >
                         {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <List className="w-3 h-3" />}
                         AI_GEN
                     </button>
-                    <label className="bg-brand-cyan/20 hover:bg-brand-cyan/30 text-brand-cyan px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 border border-brand-cyan/20 cursor-pointer">
+                    <label className="bg-secondary/20 hover:bg-secondary/30 text-secondary px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 border border-brand-cyan/20 cursor-pointer">
                         <Upload className="w-3 h-3" />
                         IMPORT M3U
                         <input 
@@ -199,7 +199,7 @@ export const PlaylistViewer = ({
                 </div>
             </div>
             {playlists.map((playlist) => (
-                <div key={playlist.id} className="bento-card p-4 bg-white/5 border border-white/10">
+                <div key={playlist.id} className="m3-card p-4 bg-surface-container border border-outline-variant">
                 <div className="flex items-center justify-between mb-4">
                   {editingId === playlist.id ? (
                       <div className="flex items-center gap-2 flex-1 mr-4">
@@ -208,19 +208,19 @@ export const PlaylistViewer = ({
                               value={editingName}
                               onChange={(e) => setEditingName(e.target.value)}
                               onKeyDown={(e) => e.key === 'Enter' && saveRename(playlist.id)}
-                              className="flex-1 bg-black/40 border border-brand-green/50 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+                              className="flex-1 bg-black/40 border border-brand-green/50 rounded-lg px-2 py-1 text-xs text-on-surface focus:outline-none"
                               autoFocus
                           />
-                          <button onClick={() => saveRename(playlist.id)} className="text-brand-green hover:text-white transition-colors">
+                          <button onClick={() => saveRename(playlist.id)} className="text-primary hover:text-on-surface transition-colors">
                               <Check className="w-4 h-4" />
                           </button>
                       </div>
                   ) : (
-                      <h3 className="text-sm font-black text-white uppercase flex items-center gap-2 group flex-1">
+                      <h3 className="text-sm font-black text-on-surface uppercase flex items-center gap-2 group flex-1">
                           {playlist.name}
                           <button 
                               onClick={() => { setEditingId(playlist.id); setEditingName(playlist.name); }} 
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-white/40 hover:text-white"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-on-surface-variant hover:text-on-surface"
                           >
                               <Edit2 className="w-3 h-3" />
                           </button>
@@ -229,7 +229,7 @@ export const PlaylistViewer = ({
                   <div className="flex gap-2 shrink-0">
                     <button 
                       onClick={() => handleExport(playlist)}
-                      className="bg-white/5 hover:bg-white/10 text-white/70 px-2 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 border border-white/10"
+                      className="bg-surface-container hover:bg-surface-container-high text-on-surface-variant px-2 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 border border-outline-variant"
                     >
                       <Download className="w-3 h-3" />
                     </button>
@@ -238,7 +238,7 @@ export const PlaylistViewer = ({
                         setActivePlaylistId(playlist.id);
                         if (playlist.items.length > 0) playMedia(playlist.items[0]);
                       }}
-                      className="bg-brand-green/20 hover:bg-brand-green/30 text-brand-green px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1"
+                      className="bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1"
                     >
                       <Play className="w-3 h-3" /> PLAY
                     </button>
@@ -254,16 +254,16 @@ export const PlaylistViewer = ({
                     setPlaylists(prev => prev.map(p => p.id === playlist.id ? { ...p, items } : p));
                 }} className="space-y-2">
                     {playlist.items.map((item) => (
-                    <Reorder.Item key={item.url} value={item} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 flex items-center gap-4 cursor-grab transition-colors">
-                        <div className="text-white/20"><List className="w-4 h-4" /></div>
-                        <div className="flex-1 text-xs text-white truncate text-left">{item.name}</div>
+                    <Reorder.Item key={item.url} value={item} className="p-3 bg-surface-container hover:bg-surface-container-high rounded-xl border border-outline-variant flex items-center gap-4 cursor-grab transition-colors">
+                        <div className="text-on-surface-variant"><List className="w-4 h-4" /></div>
+                        <div className="flex-1 text-xs text-on-surface truncate text-left">{item.name}</div>
                         <div className="flex items-center gap-2" onPointerDown={e => e.stopPropagation()}>
                           <button 
                             onClick={() => {
                               setActivePlaylistId(playlist.id);
                               playMedia(item);
                             }} 
-                            className="text-white/40 hover:text-brand-green transition-colors cursor-pointer p-1"
+                            className="text-on-surface-variant hover:text-primary transition-colors cursor-pointer p-1"
                             title="Play"
                           >
                             <Play className="w-3.5 h-3.5" />
@@ -273,7 +273,7 @@ export const PlaylistViewer = ({
                               setPlaylists(prev => prev.map(p => p.id === playlist.id ? { ...p, items: p.items.filter(i => i.url !== item.url) } : p));
                               addLog(`Removed from playlist: ${item.name}`, "info");
                             }}
-                            className="text-white/20 hover:text-red-500 transition-colors cursor-pointer p-1"
+                            className="text-on-surface-variant hover:text-red-500 transition-colors cursor-pointer p-1"
                             title="Remove from Playlist"
                           >
                             <Trash2 className="w-3.5 h-3.5" />

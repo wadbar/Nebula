@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import ReactPlayer from 'react-player';
 import { ChevronDown, ExternalLink, Headphones, Radio, Play, Pause, SkipBack, SkipForward, RefreshCw, Fingerprint, Waves, Maximize, Monitor as VlcIcon } from 'lucide-react';
 import { MediaResult } from '../types';
 import AudioVisualizer from './AudioVisualizer';
@@ -36,6 +37,7 @@ interface MediaMatrixOverlayProps {
   setCurrentTime: (t: number) => void;
   setDuration: (d: number) => void;
   setIsBuffering: (b: boolean) => void;
+  setIsPlaying: (p: boolean) => void;
   videoRef: React.RefObject<HTMLVideoElement | null>;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   mediaContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -77,6 +79,7 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
   setCurrentTime,
   setDuration,
   setIsBuffering,
+  setIsPlaying,
   videoRef,
   audioRef: _audioRef,
   mediaContainerRef,
@@ -113,9 +116,9 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
       
       <div className="flex-1 grid grid-cols-1 gap-4 h-full relative">
         {isVideoFloating && !isVideoMinimized && (
-           <div className="absolute inset-0 z-10 bg-black/80 flex flex-col items-center justify-center opacity-80 gap-3 rounded-3xl border border-dashed border-white/20">
-               <span className="text-[10px] font-mono text-white/50 uppercase tracking-widest">Feed Detached</span>
-               <button onClick={() => setIsVideoFloating(false)} className="px-4 py-1.5 bg-brand-cyan text-black hover:bg-brand-cyan-400 rounded-lg text-[10px] font-black uppercase transition-colors">Dock Feed</button>
+           <div className="absolute inset-0 z-10 bg-surface-container-highest/90 flex flex-col items-center justify-center opacity-80 gap-3 rounded-3xl border border-dashed border-white/20">
+               <span className="text-[10px] font-mono text-on-surface/50 uppercase tracking-widest">Feed Detached</span>
+               <button onClick={() => setIsVideoFloating(false)} className="px-4 py-1.5 bg-secondary text-on-primary hover:bg-secondary-400 rounded-lg text-[10px] font-black uppercase transition-colors">Dock Feed</button>
            </div>
         )}
 
@@ -132,12 +135,12 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
               isVideoFloating 
                 ? "fixed bottom-[140px] left-4 right-4 sm:left-auto sm:right-5 sm:w-[320px] md:w-[480px] shadow-[0_30px_100px_rgba(0,0,0,0.8)] border border-brand-green/30 cursor-move backdrop-blur-3xl rounded-[2rem] overflow-hidden" 
                 : "flex-1 rounded-[2rem] overflow-hidden border border-[var(--md-sys-color-outline-variant)] shadow-2xl"
-            } grid grid-cols-1 bg-black relative items-center justify-center overflow-hidden group/video aspect-video`}
+            } grid grid-cols-1 bg-surface-container-highest relative items-center justify-center overflow-hidden group/video aspect-video`}
         >
             <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover/video:opacity-100 transition-opacity z-[100]">
               <button 
                 onClick={() => setIsVideoFloating(!isVideoFloating)} 
-                className="p-2.5 bg-black/80 hover:bg-brand-green/20 rounded-xl border border-white/10 text-white/50 hover:text-brand-green backdrop-blur shadow-xl transition-all"
+                className="p-2.5 bg-surface-container-highest/90 hover:bg-primary/20 rounded-xl border border-outline-variant text-on-surface/50 hover:text-primary backdrop-blur shadow-xl transition-all"
                 title={isVideoFloating ? "Dock Video" : "Detach Video"}
               >
                 {isVideoFloating ? <ChevronDown className="w-4 h-4" /> : <ExternalLink className="w-4 h-4" />}
@@ -146,8 +149,8 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
             
             {['radio', 'audio', 'audio_stream'].includes(currentMedia.type) ? (
                <div className="w-48 h-48 rounded-full border border-brand-green/10 flex flex-col items-center justify-center relative">
-                  <div className="absolute inset-0 bg-brand-green/5 rounded-full animate-pulse transition-all group-hover/video:scale-110" />
-                  {currentMedia.type === 'audio' ? <Headphones className="w-16 h-16 text-brand-green animate-pulse" /> : <Radio className="w-16 h-16 text-brand-green animate-pulse" />}
+                  <div className="absolute inset-0 bg-primary/5 rounded-full animate-pulse transition-all group-hover/video:scale-110" />
+                  {currentMedia.type === 'audio' ? <Headphones className="w-16 h-16 text-primary animate-pulse" /> : <Radio className="w-16 h-16 text-primary animate-pulse" />}
                   <div className="absolute inset-[-20px] border border-brand-green/5 rounded-full animate-[ping_4s_linear_infinite]" />
                   <div className="absolute inset-[-40px] border border-brand-cyan/5 rounded-full animate-[ping_6s_linear_infinite]" />
                   <div className="absolute -bottom-16 w-64 h-16 left-1/2 -translate-x-1/2 overflow-hidden rounded-xl">
@@ -158,21 +161,38 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
                   </div>
                </div>
             ) : currentMedia.type === 'image' ? (
-              <img crossOrigin="anonymous" src={getProxyUrl(currentMedia.url)} className="w-full h-full object-contain bg-black" alt={currentMedia.name} />
+              <img crossOrigin="anonymous" src={getProxyUrl(currentMedia.url)} className="w-full h-full object-contain bg-surface-container-highest" alt={currentMedia.name} />
             ) : (currentMedia.type === 'document' || currentMedia.type === 'rom' || currentMedia.type === 'book') ? (
               <iframe src={getViewerUrl(currentMedia.url)} className="w-full h-full bg-white relative z-[1]" title={currentMedia.name} />
             ) : (currentMedia.url?.includes('youtube.com') || currentMedia.url?.includes('youtu.be')) ? (
-              <div className="w-full h-full relative group/yt">
-                <iframe 
-                  src={`https://www.youtube-nocookie.com/embed/${currentMedia.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1] ?? ''}?autoplay=1&mute=0&controls=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : 'https://youtube.com')}`}
-                  className="w-full h-full object-cover"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
-                  allowFullScreen
+              <div className="w-full h-full relative group/yt bg-surface-container-highest">
+                <ReactPlayer 
+                  url={currentMedia.url} 
+                  width="100%" 
+                  height="100%" 
+                  playing={isPlaying} 
+                  controls={true}
+                  onProgress={(s: any) => setCurrentTime(s.playedSeconds)}
+                  onDuration={setDuration}
+                  onBuffer={() => setIsBuffering(true)}
+                  onBufferEnd={() => setIsBuffering(false)}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  config={{
+                    youtube: {
+                      // @ts-ignore
+                      playerVars: {
+                        modestbranding: 1,
+                        fs: 1,
+                        playsinline: 1,
+                        controls: 1
+                      }
+                    }
+                  }}
                 />
               </div>
             ) : (
-              <div ref={mediaContainerRef} id="video-container" className="relative w-full h-full group overflow-hidden flex items-center justify-center bg-black">
+              <div ref={mediaContainerRef} id="video-container" className="relative w-full h-full group overflow-hidden flex items-center justify-center bg-surface-container-highest">
                 <video 
                   ref={videoRef} 
                   onEnded={() => {}}
@@ -192,7 +212,7 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="absolute inset-0 flex items-center justify-center bg-black/60 z-30"
+                      className="absolute inset-0 flex items-center justify-center bg-surface-container-highest/60 z-30"
                     >
                       <div className="w-12 h-12 border-2 border-brand-green border-t-transparent rounded-full animate-spin shadow-[0_0_15px_#00FF41]"></div>
                     </motion.div>
@@ -214,13 +234,13 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
                           isActive={isPlaying && !isBuffering} 
                         />
                       </div>
-                      <div className="flex justify-between text-[10px] font-mono text-white/40 uppercase tracking-widest">
+                      <div className="flex justify-between text-[10px] font-mono text-on-surface-variant uppercase tracking-widest">
                          <span>{formatTime(currentTime)}</span>
                          <span>{currentMedia.type === 'live_cam' ? 'Live Stream' : formatTime(duration)}</span>
                       </div>
-                      <div className="relative h-1.5 bg-white/10 rounded-full overflow-hidden group/progress cursor-pointer">
+                      <div className="relative h-1.5 bg-surface-container-high rounded-full overflow-hidden group/progress cursor-pointer">
                          <div 
-                           className="absolute top-0 left-0 h-full bg-brand-green transition-all"
+                           className="absolute top-0 left-0 h-full bg-primary transition-all"
                            style={{ width: `${duration > 0 ? (currentTime/duration)*100 : 0}%` }}
                          />
                       </div>
@@ -229,36 +249,36 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
                      <div className="flex items-center gap-3">
                        <button 
                           onClick={() => setVlcPotentMode(!vlcPotentMode)}
-                          className={`px-3 py-2 text-[10px] font-bold uppercase rounded-xl border transition-all ${vlcPotentMode ? 'text-[#FF8800] border-[#FF8800]/50 bg-[#FF8800]/10' : 'text-white/40 border-white/10'}`}
+                          className={`px-3 py-2 text-[10px] font-bold uppercase rounded-xl border transition-all ${vlcPotentMode ? 'text-[#FF8800] border-[#FF8800]/50 bg-[#FF8800]/10' : 'text-on-surface-variant border-outline-variant'}`}
                           title="Toggle Potent Networking Params"
                        >
                          {vlcPotentMode ? 'POTENT: ON' : 'POTENT: OFF'}
                        </button>
                        <button 
                           onClick={() => openInVlc(currentMedia.url, vlcPotentMode)}
-                          className="px-4 py-2 text-white/80 font-bold bg-gradient-to-r from-[#FF8800]/20 to-transparent hover:from-[#FF8800]/40 rounded-xl border border-[#FF8800]/40 hover:border-[#FF8800] hover:shadow-[0_0_15px_rgba(255,136,0,0.5)] transition-all flex items-center gap-2 relative overflow-hidden group shadow-[0_0_5px_rgba(255,136,0,0.2)]"
+                          className="px-4 py-2 text-on-surface font-bold bg-gradient-to-r from-[#FF8800]/20 to-transparent hover:from-[#FF8800]/40 rounded-xl border border-[#FF8800]/40 hover:border-[#FF8800] hover:shadow-[0_0_15px_rgba(255,136,0,0.5)] transition-all flex items-center gap-2 relative overflow-hidden group shadow-[0_0_5px_rgba(255,136,0,0.2)]"
                           title="Bypass DOM & Open Feed in VLC Core"
                        >
                           <div className="absolute inset-0 bg-[#FF8800]/10 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse"></div>
                           <VlcIcon className="w-5 h-5 relative z-10 animate-bounce group-hover:animate-none" />
                           <span className="text-xs font-black font-mono tracking-widest relative z-10 hidden sm:inline-block">VLC ENGINE</span>
                        </button>
-                       <button onClick={handleToggleSubtitles} className={`p-2 rounded-xl transition-all ${isSubtitleEnabled ? 'text-brand-green bg-brand-green/10 border border-brand-green/30 shadow-[0_0_10px_rgba(0,255,136,0.2)]' : 'text-white/40 hover:text-white border border-transparent'}`}>
+                       <button onClick={handleToggleSubtitles} className={`p-2 rounded-xl transition-all ${isSubtitleEnabled ? 'text-primary bg-primary/10 border border-brand-green/30 shadow-[0_0_10px_rgba(0,255,136,0.2)]' : 'text-on-surface-variant hover:text-on-surface border border-transparent'}`}>
                           <Fingerprint className="w-5 h-5" />
                        </button>
-                       <button onClick={handleFullscreen} className="p-2 text-white/40 hover:text-white transition-colors">
+                       <button onClick={handleFullscreen} className="p-2 text-on-surface-variant hover:text-on-surface transition-colors">
                           <Maximize className="w-5 h-5" />
                        </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-2">
+                  <div className="flex items-center justify-between border-t border-outline-variant pt-4 mt-2">
                      <div className="flex gap-1.5">
                        {['balanced', 'bandwidth', 'resolution'].map(q => (
                          <button 
                            key={q} 
                            onClick={() => setStreamQuality(q)} 
-                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${streamQuality === q ? 'bg-brand-green text-black' : 'bg-white/5 text-white/40 hover:text-white hover:bg-white/10'}`}
+                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${streamQuality === q ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'}`}
                          >
                            {q}
                          </button>
@@ -278,22 +298,22 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
             )}
             
             {isSubtitleEnabled && (subtitles || isGeneratingSubtitles) && (
-                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-[90%] max-w-xl bg-black/80 p-4 text-center text-sm font-mono text-white rounded-2xl backdrop-blur-md border border-brand-green/20 z-[60] shadow-2xl">
+                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-[90%] max-w-xl bg-surface-container-highest/90 p-4 text-center text-sm font-mono text-on-surface rounded-2xl backdrop-blur-md border border-brand-green/20 z-[60] shadow-2xl">
                     {isGeneratingSubtitles ? (
                       <div className="flex items-center justify-center gap-3">
                         <div className="flex gap-1">
-                           {[1,2,3].map(i => <div key={i} className="w-1 h-3 bg-brand-green rounded-full animate-bounce" style={{animationDelay: `${i*100}ms`}} />)}
+                           {[1,2,3].map(i => <div key={i} className="w-1 h-3 bg-primary rounded-full animate-bounce" style={{animationDelay: `${i*100}ms`}} />)}
                         </div>
-                        <span className="text-[10px] uppercase font-black tracking-widest text-brand-green">Decrypting Audio Latency...</span>
+                        <span className="text-[10px] uppercase font-black tracking-widest text-primary">Decrypting Audio Latency...</span>
                       </div>
                     ) : subtitles}
                 </div>
             )}
             
             <div className="absolute top-6 left-6 flex flex-col gap-2 z-50">
-               <div className="flex items-center gap-3 bg-black/60 backdrop-blur border border-white/10 px-3 py-2 rounded-2xl">
-                  <div className={`w-2 h-2 rounded-full ${isReconnecting ? 'bg-red-500 animate-pulse' : 'bg-brand-green animate-pulse'}`} />
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest truncate max-w-[200px]">
+               <div className="flex items-center gap-3 bg-surface-container-highest/60 backdrop-blur border border-outline-variant px-3 py-2 rounded-2xl">
+                  <div className={`w-2 h-2 rounded-full ${isReconnecting ? 'bg-red-500 animate-pulse' : 'bg-primary animate-pulse'}`} />
+                  <span className="text-[10px] font-black text-on-surface uppercase tracking-widest truncate max-w-[200px]">
                     {currentMedia.name}
                   </span>
                </div>
@@ -306,14 +326,14 @@ const MediaMatrixOverlay: React.FC<MediaMatrixOverlayProps> = ({
             </div>
 
             <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-50 opacity-0 group-hover:opacity-100 transition-all">
-                <div className="flex items-center gap-3 bg-black/80 backdrop-blur border border-white/10 px-4 py-3 rounded-[1.5rem]">
+                <div className="flex items-center gap-3 bg-surface-container-highest/90 backdrop-blur border border-outline-variant px-4 py-3 rounded-[1.5rem]">
                    <div className="flex flex-col">
-                      <span className="text-[7px] font-black uppercase text-white/30">Jitter</span>
-                      <span className="text-[10px] font-mono text-brand-green">{systemStats.latency.toFixed(0)}ms</span>
+                      <span className="text-[7px] font-black uppercase text-on-surface/30">Jitter</span>
+                      <span className="text-[10px] font-mono text-primary">{systemStats.latency.toFixed(0)}ms</span>
                    </div>
-                   <div className="h-6 w-px bg-white/10 mx-1" />
+                   <div className="h-6 w-px bg-surface-container-high mx-1" />
                    <div className="flex flex-col">
-                      <span className="text-[7px] font-black uppercase text-white/30">Loss</span>
+                      <span className="text-[7px] font-black uppercase text-on-surface/30">Loss</span>
                       <span className="text-[10px] font-mono text-red-500">{(systemStats.packetLoss*100).toFixed(2)}%</span>
                    </div>
                 </div>

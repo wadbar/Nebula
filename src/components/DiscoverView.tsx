@@ -697,9 +697,29 @@ export const DiscoverView = ({
       {!isLoading && !error && (
         <div className="space-y-8">
           <div className="flex flex-col xl:flex-row gap-6">
-            <SearchTrends searchHistory={searchHistory} />
+            <SearchTrends history={searchHistory} onSearch={(query) => onRunSearch?.(query)} />
             <SignalTrends results={trending} />
           </div>
+
+          {searchHistory.length > 0 && (
+            <section className="m3-card p-4 sm:p-6 mb-6 animate-in fade-in slide-in-from-bottom-2">
+              <div className="flex items-center gap-2 mb-4">
+                <History className="w-4 h-4 text-on-surface-variant" />
+                <h3 className="text-xs font-black uppercase tracking-widest text-on-surface-variant">Recent Queries</h3>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[...new Set(searchHistory)].slice(0, 10).map((query, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onRunSearch?.(query)}
+                    className="text-[10px] font-mono tracking-widest px-3 py-1.5 bg-surface hover:bg-surface-container-high border border-outline-variant rounded-lg text-on-surface hover:text-secondary transition-all"
+                  >
+                    {query}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section>
             <h3 className="text-[10px] sm:text-sm font-black text-on-surface-variant mb-3 sm:mb-4 flex items-center gap-2">
